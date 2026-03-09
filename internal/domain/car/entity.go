@@ -1,28 +1,39 @@
 package car
 
-import "strings"
+import (
+	"partsBot/pkg/errors"
+	"strings"
+)
 
 type Car struct {
-	Id     int
+	ID     int
 	Name   string
-	Vin    string //vin
+	VIN    string //vin
 	UserID int
 }
 
 func NewCar(id, userID int, name, vin string) (*Car, error) {
 
+	if id <= 0 {
+		return nil, errors.ErrId
+	}
+
+	if userID <= 0 {
+		return nil, errors.ErrUserId
+	}
+
 	if strings.TrimSpace(name) == "" {
-		return nil, ErrNameCanNotBeNull
+		return nil, errors.ErrNameCanNotBeNull
 	}
 
 	if strings.TrimSpace(vin) == "" {
-		return nil, ErrVinCanNotBeNull
+		return nil, errors.ErrVinCanNotBeNull
 	}
 
 	return &Car{
-		Id:     id,
+		ID:     id,
 		Name:   name,
-		Vin:    vin,
+		VIN:    vin,
 		UserID: userID,
 	}, nil
 }
@@ -30,7 +41,7 @@ func NewCar(id, userID int, name, vin string) (*Car, error) {
 func (c *Car) ChangeName(newName string) error {
 
 	if strings.TrimSpace(newName) == "" {
-		return ErrNameCanNotBeNull
+		return errors.ErrNameCanNotBeNull
 	}
 
 	c.Name = newName
@@ -41,10 +52,10 @@ func (c *Car) ChangeName(newName string) error {
 func (c *Car) ChangeVin(newVin string) error {
 
 	if strings.TrimSpace(newVin) == "" {
-		return ErrVinCanNotBeNull
+		return errors.ErrVinCanNotBeNull
 	}
 
-	c.Vin = newVin
+	c.VIN = newVin
 
 	return nil
 }

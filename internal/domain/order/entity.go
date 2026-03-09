@@ -1,69 +1,86 @@
 package order
 
-import "time"
+import (
+	"partsBot/pkg/errors"
+	"partsBot/pkg/money"
+	"strings"
+	"time"
+)
 
 type Order struct {
-	ID        int
-	UserID    int
-	Adress    string
-	Items     []OrderItem
-	Status    OrderStatus
-	CreatedAt time.Time
+	id        int
+	userID    int
+	address   string
+	items     []OrderItem
+	status    OrderStatus
+	createdAt time.Time
 }
 
 type OrderItem struct {
-	PartID   string
-	Name     string
-	Brand    string
-	Price    int
-	Quantity int
+	partID   string
+	name     string
+	brand    string
+	price    money.Money
+	quantity int64
 }
 
 func NewOrder(
-	id, userID int,
-	adress string,
+	userID int,
+	address string,
 	items []OrderItem,
-) *Order{
-	return &Order{
-		ID: id,
-		UserID: userID,
-		Adress: adress,
-		Items: items,
-		Status: OrderStatusNew,
-		CreatedAt: time.Now(),
+) (*Order, error) {
+
+	if userID <= 0 {
+		return nil, errors.ErrUserId
 	}
+
+	if len(items) == 0 {
+		return nil, errors.ErrOrderEmpty
+	}
+
+	if address == "" {
+		return nil, errors.ErrAddressEmpty
+	}
+
+	copied := make([]OrderItem, len(items))
+	copy(copied, items)
+
+	return &Order{
+		userID:    userID,
+		address:   address,
+		items:     copied,
+		status:    OrderStatusNew,
+		createdAt: time.Now(),
+	}, nil
 }
 
 func NewOrderItem(
-	PartID, Name, Brand string,
-	Price, Quantity int,
+	partID, name, brand string,
+	quantity int64,
+	price money.Money,
 ) (*OrderItem, error) {
 
-	if len(PartID) == 0 || len(PartID) > 50 {
-		return nil, ErrItemPartID
+	if strings.TrimSpace(partID) == "" || len(partID) > 50 {
+		return nil, errors.ErrItemPartID
 	}
 
-	if len(Name) == 0 || len(Name) > 50 {
-		return nil, ErrItemName
+	if strings.TrimSpace(name) == "" || len(name) > 50 {
+		return nil, errors.ErrItemName
 	}
 
-	if len(Brand) == 0 || len(Brand) > 50 {
-		return nil, ErrItemBrand
+	if strings.TrimSpace(brand) == "" || len(brand) > 50 {
+		return nil, errors.ErrItemBrand
 	}
 
-	if Price <= 0 || Price > 1000000 {
-		return nil, ErrItemPrice
-	}
-
-	if Quantity <= 0 || Quantity > 20 {
-		return nil, ErrItemQuantity
+	if quantity <= 0 || quantity > 20 {
+		return nil, errors.ErrItemQuantity
 	}
 
 	return &OrderItem{
-		PartID:   PartID,
-		Name:     Name,
-		Brand:    Brand,
-		Price:    Price,
-		Quantity: Quantity,
+		partID:   partID,
+		name:     name,
+		brand:    brand,
+		price:    price,
+		quantity: quantity,
 	}, nil
 }

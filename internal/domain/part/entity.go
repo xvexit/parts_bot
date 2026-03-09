@@ -1,22 +1,48 @@
 package part
 
-type Part struct{
-	ID int
-	Name string
-	Price int
+import (
+	"partsBot/pkg/errors"
+	"partsBot/pkg/money"
+	"strings"
+)
+
+type Part struct {
+	ID          int
+	Name        string
+	Brand       string
+	Price       money.Money
 	DeliveryDay int
-	ImgUrl string
+	ImageURL    string
 }
 
 func NewPart(
-	id, price, delivDay int,
-	name, imgUrl string,
-	) *Part{
-	return &Part{
-		ID: id,
-		Name: name,
-		Price: price,
-		DeliveryDay: delivDay,
-		ImgUrl: imgUrl,
+	id, delivDay int,
+	name, imgUrl, brand string,
+	price money.Money,
+) (*Part, error) {
+
+	if id <= 0 {
+		return nil, errors.ErrItemPartID
 	}
+
+	if strings.TrimSpace(name) == "" || len(name) > 50 {
+		return nil, errors.ErrItemName
+	}
+
+	if strings.TrimSpace(brand) == "" || len(brand) > 50 {
+		return nil, errors.ErrItemBrand
+	}
+
+	if delivDay < 0 || delivDay > 20 {
+		return nil, errors.ErrItemQuantity
+	}
+
+	return &Part{
+		ID:          id,
+		Name:        name,
+		Brand:       brand,
+		Price:       price,
+		DeliveryDay: delivDay,
+		ImageURL:    imgUrl,
+	}, nil
 }

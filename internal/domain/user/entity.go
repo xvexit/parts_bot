@@ -1,66 +1,68 @@
 package user
 
 import (
+	"partsBot/pkg/errors"
 	"strings"
 	"time"
 )
 
 type User struct {
-	ID         int
-	TelegramID int
-	Name       string
-	Phone      string
-	CreatedAt  time.Time
+	id         int
+	telegramID int64
+	name       string
+	phone      string
+	createdAt  time.Time
 }
 
 func NewUser(
-	id, tgid int,
+	id int,
+	tgid int64,
 	name, phone string,
 ) (*User, error) {
 
-	if id <= 0 || id > 50 {
-		return nil, ErrId
+	if id <= 0 {
+		return nil, errors.ErrId
 	}
 
-	if id <= 0 || id > 50 {
-		return nil, ErrTgId
+	if tgid <= 0 {
+		return nil, errors.ErrTgId
 	}
 
 	if strings.TrimSpace(name) == "" || len(name) > 50 {
-		return nil, ErrUserName
+		return nil, errors.ErrUserName
 	}
 
-	if strings.TrimSpace(phone) == "" || len(phone) > 12 {
-		return nil, ErrUserPhone
+	if strings.TrimSpace(phone) == "" || len(phone) > 20 {
+		return nil, errors.ErrUserPhone
 	}
 
 	return &User{
-		ID:         id,
-		TelegramID: tgid,
-		Name:       name,
-		Phone:      phone,
-		CreatedAt:  time.Now(),
+		id:         id,
+		telegramID: tgid,
+		name:       name,
+		phone:      phone,
+		createdAt:  time.Now(),
 	}, nil
 }
 
 func (u *User) ChangePhone(newPhone string) error {
 	
-	if strings.TrimSpace(newPhone) == "" || len(newPhone) > 12 {
-		return ErrUserPhone
+	if strings.TrimSpace(newPhone) == "" || len(newPhone) > 20 {
+		return errors.ErrUserPhone
 	}
 
-	u.Phone = newPhone
+	u.phone = newPhone
 
 	return nil
 }
 
 func (u *User) ChangeName(newName string) error {
 	
-	if strings.TrimSpace(newName) == "" || len(newName) > 12 {
-		return ErrUserName
+	if strings.TrimSpace(newName) == "" || len(newName) > 50 {
+		return errors.ErrUserName
 	}
 
-	u.Name = newName
+	u.name = newName
 
 	return nil
 }
