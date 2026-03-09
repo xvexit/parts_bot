@@ -17,11 +17,12 @@ type Order struct {
 }
 
 type OrderItem struct {
-	partID   string
-	name     string
-	brand    string
-	price    money.Money
-	quantity int64
+	partID      string
+	name        string
+	brand       string
+	price       money.Money
+	quantity    int64
+	deliveryDay int
 }
 
 func NewOrder(
@@ -54,10 +55,17 @@ func NewOrder(
 	}, nil
 }
 
+func (o *Order) Items() []OrderItem {
+	items := make([]OrderItem, len(o.items))
+	copy(items, o.items)
+	return items
+}
+
 func NewOrderItem(
 	partID, name, brand string,
 	quantity int64,
 	price money.Money,
+	deliveryDay int,
 ) (*OrderItem, error) {
 
 	if strings.TrimSpace(partID) == "" || len(partID) > 50 {
@@ -76,11 +84,16 @@ func NewOrderItem(
 		return nil, errors.ErrItemQuantity
 	}
 
+	if deliveryDay < 0 || deliveryDay > 1000 {
+		return nil, errors.ErrDelivDay
+	}
+
 	return &OrderItem{
 		partID:   partID,
 		name:     name,
 		brand:    brand,
 		price:    price,
 		quantity: quantity,
+		deliveryDay: deliveryDay,
 	}, nil
 }

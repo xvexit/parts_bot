@@ -13,16 +13,18 @@ type Cart struct {
 }
 
 type CartItem struct {
-	partID   string
-	name     string
-	brand    string
-	price    money.Money
-	quantity int64
+	partID      string
+	name        string
+	brand       string
+	price       money.Money
+	quantity    int64
+	deliveryDay int
+	imageURL    string
 }
 
 func NewCart(userId int) (*Cart, error) {
 
-	if userId <= 0{
+	if userId <= 0 {
 		return nil, errors.ErrUserId
 	}
 
@@ -35,8 +37,8 @@ func NewCart(userId int) (*Cart, error) {
 func (c *Cart) AddItem(item CartItem) {
 
 	for i := range c.items {
-		if c.items[i].partID == item.partID{
-			if c.items[i].quantity + item.quantity > 20{
+		if c.items[i].partID == item.partID {
+			if c.items[i].quantity+item.quantity > 20 {
 				return
 			}
 			c.items[i].quantity += item.quantity
@@ -58,7 +60,7 @@ func (c *Cart) DeleteItem(partID string) bool {
 	return false
 }
 
-func (c *Cart) Total() money.Money{
+func (c *Cart) Total() money.Money {
 	total, _ := money.New(0)
 
 	for _, item := range c.items {
@@ -75,8 +77,9 @@ func (c *Cart) Clear() {
 }
 
 func NewCartItem(
-	partID, name, brand string,
+	partID, name, brand, imageUrl string,	//imgurl withiout validation 
 	quantity int64,
+	deliveryDay int,
 	price money.Money,
 ) (*CartItem, error) {
 
@@ -94,6 +97,10 @@ func NewCartItem(
 
 	if quantity <= 0 || quantity > 20 {
 		return nil, errors.ErrItemQuantity
+	}
+
+	if deliveryDay < 0 || deliveryDay > 1000 {
+		return nil, errors.ErrDelivDay
 	}
 
 	return &CartItem{
@@ -134,6 +141,7 @@ func NewOrderFromCart(cart *Cart, address string) (*order.Order, error) {
 			item.brand,
 			item.quantity,
 			item.price,
+			item.deliveryDay,
 		)
 		if err != nil {
 			return nil, err
@@ -145,6 +153,6 @@ func NewOrderFromCart(cart *Cart, address string) (*order.Order, error) {
 	return order.NewOrder(cart.userID, address, items)
 }
 
-func (c *Cart) ItemsCount() int{
+func (c *Cart) ItemsCount() int {
 	return len(c.items)
 }

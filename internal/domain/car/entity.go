@@ -6,17 +6,13 @@ import (
 )
 
 type Car struct {
-	ID     int
+	ID     int64
 	Name   string
 	VIN    string //vin
 	UserID int
 }
 
-func NewCar(id, userID int, name, vin string) (*Car, error) {
-
-	if id <= 0 {
-		return nil, errors.ErrId
-	}
+func NewCar(userID int, name, vin string) (*Car, error) {
 
 	if userID <= 0 {
 		return nil, errors.ErrUserId
@@ -31,7 +27,6 @@ func NewCar(id, userID int, name, vin string) (*Car, error) {
 	}
 
 	return &Car{
-		ID:     id,
 		Name:   name,
 		VIN:    vin,
 		UserID: userID,

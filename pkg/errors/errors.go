@@ -20,4 +20,5 @@ var (
 	ErrOrderEmpty         = errors.New("order cant be empty")
 	ErrAddressEmpty       = errors.New("address can not be empty")
 	ErrCartIsEmpty        = errors.New("cart empty")
+	ErrDelivDay           = errors.New("delivery day cant be negative")
 )
