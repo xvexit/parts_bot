@@ -7,7 +7,7 @@
 	)
 
 	type User struct {
-		id         int
+		id         int64
 		telegramID int64
 		name       string
 		phone      string
