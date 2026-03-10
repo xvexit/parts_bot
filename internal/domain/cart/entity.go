@@ -8,7 +8,7 @@ import (
 )
 
 type Cart struct {
-	userID int
+	userID int64
 	items  []CartItem
 }
 
@@ -22,7 +22,7 @@ type CartItem struct {
 	imageURL    string
 }
 
-func NewCart(userId int) (*Cart, error) {
+func NewCart(userId int64) (*Cart, error) {
 
 	if userId <= 0 {
 		return nil, errors.ErrUserId
@@ -34,30 +34,31 @@ func NewCart(userId int) (*Cart, error) {
 	}, nil
 }
 
-func (c *Cart) AddItem(item CartItem) {
+func (c *Cart) AddItem(item CartItem) error {
 
 	for i := range c.items {
 		if c.items[i].partID == item.partID {
-			if c.items[i].quantity+item.quantity > 20 {
-				return
+			if c.items[i].quantity+item.quantity > 20 {	
+				return errors.ErrItemQuantity
 			}
 			c.items[i].quantity += item.quantity
-			return
+			return nil
 		}
 	}
 
 	c.items = append(c.items, item)
+	return nil
 }
 
-func (c *Cart) DeleteItem(partID string) bool {
+func (c *Cart) DeleteItem(partID string) error {
 
 	for i := range c.items {
 		if c.items[i].partID == partID {
 			c.items = append(c.items[:i], c.items[i+1:]...)
-			return true
+			return nil
 		}
 	}
-	return false
+	return errors.ErrItemNotFound
 }
 
 func (c *Cart) Total() money.Money {
@@ -109,6 +110,8 @@ func NewCartItem(
 		brand:    brand,
 		price:    price,
 		quantity: quantity,
+		deliveryDay: deliveryDay,
+		imageURL: imageUrl,
 	}, nil
 }
 
@@ -122,7 +125,7 @@ func (c *Cart) Items() []CartItem {
 	return items
 }
 
-func NewOrderFromCart(cart *Cart, address string) (*order.Order, error) {
+func (cart *Cart) NewOrderFromCart(address string) (*order.Order, error) {
 
 	if cart.IsEmpty() {
 		return nil, errors.ErrCartIsEmpty

@@ -9,10 +9,10 @@ type Car struct {
 	ID     int64
 	Name   string
 	VIN    string //vin
-	UserID int
+	UserID int64
 }
 
-func NewCar(userID int, name, vin string) (*Car, error) {
+func NewCar(userID int64, name, vin string) (*Car, error) {
 
 	if userID <= 0 {
 		return nil, errors.ErrUserId

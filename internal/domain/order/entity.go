@@ -8,8 +8,8 @@ import (
 )
 
 type Order struct {
-	id        int
-	userID    int
+	id        int64
+	userID    int64
 	address   string
 	items     []OrderItem
 	status    OrderStatus
@@ -26,7 +26,7 @@ type OrderItem struct {
 }
 
 func NewOrder(
-	userID int,
+	userID int64,
 	address string,
 	items []OrderItem,
 ) (*Order, error) {
@@ -53,6 +53,10 @@ func NewOrder(
 		status:    OrderStatusNew,
 		createdAt: time.Now(),
 	}, nil
+}
+
+func (o *Order) SwitchStatus(status OrderStatus) {
+	o.status = status
 }
 
 func (o *Order) Items() []OrderItem {
@@ -89,11 +93,11 @@ func NewOrderItem(
 	}
 
 	return &OrderItem{
-		partID:   partID,
-		name:     name,
-		brand:    brand,
-		price:    price,
-		quantity: quantity,
+		partID:      partID,
+		name:        name,
+		brand:       brand,
+		price:       price,
+		quantity:    quantity,
 		deliveryDay: deliveryDay,
 	}, nil
 }
