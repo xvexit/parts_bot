@@ -9,7 +9,7 @@ type Service struct {
 	repo order.Repository
 }
 
-func (s *Service) GetByID(ctx context.Context, id int64) (order.Order, error) {
+func (s *Service) GetByID(ctx context.Context, id int64) (*order.Order, error) {
 	return s.repo.GetByID(ctx, id)
 }
 
@@ -27,17 +27,14 @@ func (s *Service) OrderItems(ctx context.Context, id int64) ([]order.OrderItem, 
 	return order.Items(), nil
 }
 
-func (s *Service) SwitchStatus(ctx context.Context, id int64, status order.OrderStatus) (order.Order, error) {
+func (s *Service) SwitchStatus(ctx context.Context, id int64, status order.OrderStatus) error {
 
 	ord, err := s.repo.GetByID(ctx, id)
 	if err != nil {
-		return order.Order{}, err
+		return err
 	}
 
 	ord.SwitchStatus(status)
 
-	if err := s.repo.Save(ctx, &ord); err != nil {
-		return order.Order{}, err
-	}
-	return ord, nil
+	return s.repo.UpdateStatus(ctx, id, status)
 }

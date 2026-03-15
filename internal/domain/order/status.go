@@ -9,4 +9,5 @@ const (
 	OrderStatusShipped   OrderStatus = "shipped"
 	OrderStatusDelivered OrderStatus = "delivered"
 	OrderStatusCanceled  OrderStatus = "canceled"
+	OrderStatusErr       OrderStatus = "error"
 )

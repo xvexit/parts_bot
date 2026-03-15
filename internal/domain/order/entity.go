@@ -25,6 +25,41 @@ type OrderItem struct {
 	deliveryDay int
 }
 
+func RestoreOrder(
+	id, userID int64,
+	address string,
+	items []OrderItem,
+	status string,
+	createdAt time.Time,
+) *Order {
+	var st OrderStatus
+	switch status {
+	case "new":
+		st = OrderStatusNew
+	case "pending":
+		st = OrderStatusPending
+	case "confirmed":
+		st = OrderStatusConfirmed
+	case "shipped":
+		st = OrderStatusShipped
+	case "delivered":
+		st = OrderStatusDelivered
+	case "canceled":
+		st = OrderStatusCanceled
+	default:
+		st = OrderStatusErr
+	}
+
+	return &Order{
+		id: id,
+		userID:    userID,
+		address:   address,
+		items:     items,
+		status:    st,
+		createdAt: createdAt,
+	}
+}
+
 func NewOrder(
 	userID int64,
 	address string,
@@ -100,4 +135,48 @@ func NewOrderItem(
 		quantity:    quantity,
 		deliveryDay: deliveryDay,
 	}, nil
+}
+
+func (o *Order) SetID(id int64) {
+	o.id = id
+}
+
+func (o *Order) UserID() int64 {
+	return o.userID
+}
+
+func (o *Order) Address() string {
+	return o.address
+}
+
+func (o *Order) CreatedAt() time.Time {
+	return o.createdAt
+}
+
+func (o *Order) Status() string {
+	return string(o.status)
+}
+
+func (o *OrderItem) PartID() string {
+	return o.partID
+}
+
+func (o *OrderItem) Brand() string {
+	return o.brand
+}
+
+func (o *OrderItem) Name() string {
+	return o.name
+}
+
+func (o *OrderItem) Price() money.Money {
+	return o.price
+}
+
+func (o *OrderItem) Quantity() int64 {
+	return o.quantity
+}
+
+func (o *OrderItem) DeliveryDay() int {
+	return o.deliveryDay
 }

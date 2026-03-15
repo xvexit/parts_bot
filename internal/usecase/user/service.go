@@ -18,47 +18,51 @@ func (s *Service) Register(
 		return nil, err
 	}
 
-	if err := s.repo.Save(ctx, userr); err != nil{
+	if err := s.repo.Create(ctx, userr); err != nil{
 		return nil, err
 	}
 
 	return userr, nil
 }
 
-func (s *Service) ChangeName(ctx context.Context, newName string, userID int) (user.User, error) {
+func (s *Service) ChangeName(ctx context.Context, newName string, userID int64) (*user.User, error) {
 	userr, err := s.repo.GetByID(ctx, userID)
 	if err != nil {
-		return user.User{}, err
+		return nil, err
 	}
 
 	if err := userr.ChangeName(newName); err != nil {
-		return user.User{}, err
+		return nil, err
 	}
 
-	return userr, s.repo.Save(ctx, &userr)
+	if err := s.repo.Update(ctx, userr); err != nil{
+		return nil, err
+	}
+
+	return userr, err
 }
 
-func (s *Service) ChangePhone(ctx context.Context, newPhone string, userID int) (user.User, error) {
+func (s *Service) ChangePhone(ctx context.Context, newPhone string, userID int64) (*user.User, error) {
 	userr, err := s.repo.GetByID(ctx, userID)
 	if err != nil {
-		return user.User{}, err
+		return nil, err
 	}
 
 	if err := userr.ChangePhone(newPhone); err != nil {
-		return user.User{}, err
+		return nil, err
 	}
 
-	return userr, s.repo.Save(ctx, &userr)
+	return userr, s.repo.Update(ctx, userr)
 }
 
-func (s *Service) Delete(ctx context.Context, userID int) error {
+func (s *Service) Delete(ctx context.Context, userID int64) error {
 	return s.repo.Delete(ctx, userID)
 }
 
-func (s *Service) GetByID(ctx context.Context, userID int) (user.User, error) {
+func (s *Service) GetByID(ctx context.Context, userID int64) (*user.User, error) {
 	return s.repo.GetByID(ctx, userID)
 }
 
-func (s *Service) GetByTgID(ctx context.Context, userTgID int) (user.User, error) {
+func (s *Service) GetByTgID(ctx context.Context, userTgID int64) (*user.User, error) {
 	return s.repo.GetByTgID(ctx, userTgID)
 }

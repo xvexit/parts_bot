@@ -13,6 +13,8 @@ CREATE TABLE cars (
     vin TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now()
 );
+CREATE INDEX idx_cars_user_id ON cars(user_id);
+CREATE UNIQUE INDEX idx_user_car ON cars(user_id);
 
 CREATE TABLE cart_items (
     user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -25,14 +27,16 @@ CREATE TABLE cart_items (
     image_url TEXT,
     PRIMARY KEY (user_id, part_id)
 );
+CREATE INDEX idx_cart_items_user_id ON cart_items(user_id);
 
 CREATE TABLE orders (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL REFERENCES users(id),
     address VARCHAR(50) NOT NULL,
     status VARCHAR(50) NOT NULL,
-    created_at TIMESTAMP NOT NULL
+    created_at TIMESTAMP NOT NULL DEFAULT now()
 );
+CREATE INDEX idx_orders_user_id ON orders(user_id);
 
 CREATE TABLE order_items (
     id BIGSERIAL PRIMARY KEY,

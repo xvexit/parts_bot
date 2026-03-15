@@ -4,6 +4,7 @@ import (
 	"context"
 	"partsBot/internal/domain/cart"
 	"partsBot/internal/domain/order"
+	"partsBot/internal/infrastructure/db"
 	"partsBot/pkg/errors"
 	"partsBot/pkg/money"
 )
@@ -11,6 +12,19 @@ import (
 type Service struct {
 	cartRepo  cart.Repository
 	orderRepo order.Repository
+	txManager *db.TxManager
+}
+
+func NewService(
+	cartRepo cart.Repository,
+	orderRepo order.Repository,
+	txManager *db.TxManager,
+) *Service {
+	return &Service{
+		cartRepo:  cartRepo,
+		orderRepo: orderRepo,
+		txManager: txManager,
+	}
 }
 
 func (s *Service) AddItem(
@@ -24,7 +38,7 @@ func (s *Service) AddItem(
 		return err
 	}
 
-	if cartAgg == nil {
+	if cartAgg.IsEmpty() { //удалить
 		cartAgg, err = cart.NewCart(userID)
 		if err != nil {
 			return err
@@ -103,31 +117,38 @@ func (s *Service) Checkout(
 	address string,
 ) (*order.Order, error) {
 
-	cart, err := s.cartRepo.GetByUserID(ctx, userID)
+	var ord *order.Order
+
+	err := s.txManager.WithinTx(ctx, func(txCtx context.Context) error {
+
+		cart, err := s.cartRepo.GetByUserIDForUpdate(txCtx, userID)
+		if err != nil {
+			return err
+		}
+
+		if cart.IsEmpty() {
+			return errors.ErrCartIsEmpty
+		}
+
+		ord, err = cart.NewOrderFromCart(address)
+		if err != nil {
+			return err
+		}
+
+		if err := s.orderRepo.Create(txCtx, ord); err != nil {
+			return err
+		}
+
+		cart.Clear()
+
+		return s.cartRepo.Save(txCtx, cart)
+	})
+
 	if err != nil {
 		return nil, err
 	}
 
-	if cart == nil {
-		return nil, errors.ErrCartIsEmpty
-	}
-
-	order, err := cart.NewOrderFromCart(address)
-	if err != nil {
-		return nil, err
-	}
-
-	err = s.orderRepo.Save(ctx, order) //сделать атомарно
-	if err != nil {
-		return nil, err
-	}
-
-	cart.Clear()
-
-	err = s.cartRepo.Save(ctx, cart)
-	if err != nil {
-		return nil, err
-	}
-
-	return order, nil
+	return ord, nil
 }
+
+// updateStatus

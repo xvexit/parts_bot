@@ -38,7 +38,7 @@ func (c *Cart) AddItem(item CartItem) error {
 
 	for i := range c.items {
 		if c.items[i].partID == item.partID {
-			if c.items[i].quantity+item.quantity > 20 {	
+			if c.items[i].quantity+item.quantity > 20 {
 				return errors.ErrItemQuantity
 			}
 			c.items[i].quantity += item.quantity
@@ -78,7 +78,7 @@ func (c *Cart) Clear() {
 }
 
 func NewCartItem(
-	partID, name, brand, imageUrl string,	//imgurl withiout validation 
+	partID, name, brand, imageUrl string, //imgurl withiout validation
 	quantity int64,
 	deliveryDay int,
 	price money.Money,
@@ -105,13 +105,13 @@ func NewCartItem(
 	}
 
 	return &CartItem{
-		partID:   partID,
-		name:     name,
-		brand:    brand,
-		price:    price,
-		quantity: quantity,
+		partID:      partID,
+		name:        name,
+		brand:       brand,
+		price:       price,
+		quantity:    quantity,
 		deliveryDay: deliveryDay,
-		imageURL: imageUrl,
+		imageURL:    imageUrl,
 	}, nil
 }
 
@@ -158,4 +158,36 @@ func (cart *Cart) NewOrderFromCart(address string) (*order.Order, error) {
 
 func (c *Cart) ItemsCount() int {
 	return len(c.items)
+}
+
+func (i CartItem) PartID() string {
+	return i.partID
+}
+
+func (i CartItem) Name() string {
+	return i.name
+}
+
+func (i CartItem) Brand() string {
+	return i.brand
+}
+
+func (i CartItem) Quantity() int64 {
+	return i.quantity
+}
+
+func (i CartItem) DeliveryDay() int {
+	return i.deliveryDay
+}
+
+func (i CartItem) ImageURL() string {
+	return i.imageURL
+}
+
+func (i CartItem) Price() money.Money {
+	return i.price
+}
+
+func (c Cart) UserID() int64 {
+	return c.userID
 }

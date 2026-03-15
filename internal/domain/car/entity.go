@@ -6,10 +6,10 @@ import (
 )
 
 type Car struct {
-	ID     int64
-	Name   string
-	VIN    string //vin
-	UserID int64
+	id     int64
+	name   string
+	vin    string //vin
+	userID int64
 }
 
 func NewCar(userID int64, name, vin string) (*Car, error) {
@@ -27,10 +27,23 @@ func NewCar(userID int64, name, vin string) (*Car, error) {
 	}
 
 	return &Car{
-		Name:   name,
-		VIN:    vin,
-		UserID: userID,
+		name:   name,
+		vin:    vin,
+		userID: userID,
 	}, nil
+}
+
+func RestoreCar(id, userID int64, name, vin string) *Car {
+	return &Car{
+		id:     id,
+		userID: userID,
+		name:   name,
+		vin:    vin,
+	}
+}
+
+func (c *Car) SetId(id int64) {
+	c.id = id
 }
 
 func (c *Car) ChangeName(newName string) error {
@@ -39,7 +52,7 @@ func (c *Car) ChangeName(newName string) error {
 		return errors.ErrNameCanNotBeNull
 	}
 
-	c.Name = newName
+	c.name = newName
 
 	return nil
 }
@@ -50,7 +63,23 @@ func (c *Car) ChangeVin(newVin string) error {
 		return errors.ErrVinCanNotBeNull
 	}
 
-	c.VIN = newVin
+	c.vin = newVin
 
 	return nil
+}
+
+func (c *Car) UserId() int64 {
+	return c.userID
+}
+
+func (c *Car) Vin() string {
+	return c.vin
+}
+
+func (c *Car) Name() string {
+	return c.name
+}
+
+func (c *Car) ID() string {
+	return c.ID()
 }
