@@ -9,6 +9,12 @@ type Service struct {
 	repo order.Repository
 }
 
+func NewService(repo order.Repository) *Service {
+	return &Service{
+		repo: repo,
+	}
+}
+
 func (s *Service) GetByID(ctx context.Context, id int64) (*order.Order, error) {
 	return s.repo.GetByID(ctx, id)
 }

@@ -9,16 +9,22 @@ type Service struct {
 	repo user.Repository
 }
 
+func NewService(repo user.Repository) *Service {
+	return &Service{
+		repo: repo,
+	}
+}
+
 func (s *Service) Register(
-    ctx context.Context,
-    dto UserDto,
-) (*user.User, error){
+	ctx context.Context,
+	dto UserDto,
+) (*user.User, error) {
 	userr, err := user.NewUser(dto.TelegramID, dto.Name, dto.Phone)
-	if err != nil{
+	if err != nil {
 		return nil, err
 	}
 
-	if err := s.repo.Create(ctx, userr); err != nil{
+	if err := s.repo.Create(ctx, userr); err != nil {
 		return nil, err
 	}
 
@@ -35,7 +41,7 @@ func (s *Service) ChangeName(ctx context.Context, newName string, userID int64) 
 		return nil, err
 	}
 
-	if err := s.repo.Update(ctx, userr); err != nil{
+	if err := s.repo.Update(ctx, userr); err != nil {
 		return nil, err
 	}
 

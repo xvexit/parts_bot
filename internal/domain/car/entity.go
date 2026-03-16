@@ -80,6 +80,6 @@ func (c *Car) Name() string {
 	return c.name
 }
 
-func (c *Car) ID() string {
-	return c.ID()
+func (c *Car) ID() int64 {
+	return c.id
 }

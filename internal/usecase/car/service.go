@@ -9,6 +9,12 @@ type Service struct {
 	repo car.Repository
 }
 
+func NewService(repo car.Repository) *Service {
+	return &Service{
+		repo: repo,
+	}
+}
+
 func (s *Service) Add(ctx context.Context, carDto CarDto) (*car.Car, error) { // защитить от создания множества машин на 1 акк
 
 	ccar, err := car.NewCar(carDto.UserID, carDto.Name, carDto.VIN)

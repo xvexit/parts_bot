@@ -1,21 +1,49 @@
 version: '3.9'
 
 services:
+  migrate:
+    image: migrate/migrate:v3.5.4
+    volumes:
+      - ./internal/migrations:/migrations
+    command: 
+      - "-path=/migrations"
+      - "-database=postgres://partsbot:partsbot@postgres:5432/partsbot?sslmode=disable"
+      - "up"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  app:
+    build: .
+    container_name: partsbot_app
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_URL=postgres://partsbot:partsbot@postgres:5432/partsbot?sslmode=disable
+      - TELEGRAM_TOKEN=8481467325:AAGh_hIif7sLXZsgTY3WqZZKvJHGcL5behI
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
   postgres:
     image: postgres:16
     container_name: partsbot_db
-
     environment:
       POSTGRES_USER: partsbot
       POSTGRES_PASSWORD: partsbot
       POSTGRES_DB: partsbot
-
+      POSTGRES_INITDB_ARGS: --auth-host=md5  
     ports:
       - "5432:5432"
+    #volumes:
+      #- postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U partsbot"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
-volumes:
-  postgres_data:
+#volumes:
+#  postgres_data:

@@ -145,6 +145,10 @@ func (o *Order) UserID() int64 {
 	return o.userID
 }
 
+func (o *Order) ID() int64 {
+	return o.id
+}
+
 func (o *Order) Address() string {
 	return o.address
 }
