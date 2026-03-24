@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
+	"log"
 
 	"partsBot/internal/delivery/telegram"
 	"partsBot/internal/infrastructure/db"
@@ -14,6 +14,7 @@ import (
 	cartuc "partsBot/internal/usecase/cart"
 	orderuc "partsBot/internal/usecase/order"
 	useruc "partsBot/internal/usecase/user"
+	adapter "partsBot/internal/infrastructure/adapter"
 )
 
 func main() {
@@ -33,19 +34,25 @@ func main() {
 	carService := caruc.NewService(carRepo)
 	cartService := cartuc.NewService(cartRepo, orderRepo, txManager)
 	orderService := orderuc.NewService(orderRepo)
+	partAdapter := adapter.New(adapter.Config{
+		APIKey: os.Getenv("PART_API"),
+	})
 
 	fmt.Println(carService, cartService, orderService)
 
+	
 	userHandler := telegram.NewUserHandler(userService)
-	cartHandler := telegram.NewCartHandler(cartService)
-	carHandler := telegram.NewCarHandler(carService)
-	orderHandler := telegram.NewOrderHandler(orderService)
+	cartHandler := telegram.NewCartHandler(cartService, userService)
+	carHandler := telegram.NewCarHandler(carService, userService)
+	orderHandler := telegram.NewOrderHandler(orderService, userService)
+	partHandler := telegram.NewPartsHandler(partAdapter, carService, userService)
 
 	router := telegram.NewRouter(
 		userHandler,
 		carHandler,
 		cartHandler,
 		orderHandler,
+		partHandler,
 	)
 
 	bot, err := telegram.NewBot(os.Getenv("TELEGRAM_TOKEN"), router)

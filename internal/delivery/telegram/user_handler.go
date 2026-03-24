@@ -29,6 +29,7 @@ func (h *userHandler) Start(api *tgbotapi.BotAPI, msg *tgbotapi.Message) { //н�
 
 	u, err := h.service.Register(ctx, dto)
 	if err != nil {
+		api.Send(tgbotapi.NewMessage(msg.Chat.ID, "Ошибка регистрации"))
 		log.Printf("ERROR: Регистрация не удалась: %v", err)
 		return
 	}
@@ -37,3 +38,4 @@ func (h *userHandler) Start(api *tgbotapi.BotAPI, msg *tgbotapi.Message) { //н�
 
 	api.Send(tgbotapi.NewMessage(msg.Chat.ID, text))
 }
+

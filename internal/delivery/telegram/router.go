@@ -11,6 +11,7 @@ type Router struct {
 	carHandler   *carHandler
 	cartHandler  *cartHandler
 	orderHandler *orderHandler
+	partsHandler *partsHandler
 }
 
 func NewRouter(
@@ -18,12 +19,14 @@ func NewRouter(
 	carHandler *carHandler,
 	cartHandler *cartHandler,
 	orderHandler *orderHandler,
+	partsHandler *partsHandler,
 ) *Router {
 	return &Router{
 		userHandler:  userHandler,
 		carHandler:   carHandler,
 		cartHandler:  cartHandler,
 		orderHandler: orderHandler,
+		partsHandler: partsHandler,
 	}
 }
 
@@ -33,12 +36,22 @@ func (r *Router) Handle(api *tgbotapi.BotAPI, msg *tgbotapi.Message) {
 	case "start":
 		r.userHandler.Start(api, msg)
 	case "cart":
-		//r.cartHandler.ShowCart(api, msg)
+		r.cartHandler.ShowCart(api, msg)
+	case "additem":
+		r.cartHandler.AddItem(api, msg)
+	case "checkout":
+		r.cartHandler.Checkout(api, msg)
 	case "addcar":
-		//r.carHandler.AddCar(api, msg)
+		r.carHandler.AddCar(api, msg)
+	case "cars":
+		r.carHandler.MyCars(api, msg)
 	case "orders":
-		//r.orderHandler.ListOrders(api, msg)
+		r.orderHandler.ListOrders(api, msg)
+	case "orderitems":
+		r.orderHandler.OrderItems(api, msg)
+	case "getparts":
+		r.partsHandler.Search(api, msg)
 	default:
-		api.Send(tgbotapi.NewMessage(msg.Chat.ID, "Unknownnn command"))
+		api.Send(tgbotapi.NewMessage(msg.Chat.ID, "Неизвестная комманда!"))
 	}
 }

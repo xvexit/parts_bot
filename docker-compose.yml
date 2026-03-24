@@ -21,6 +21,7 @@ services:
     environment:
       - DATABASE_URL=postgres://partsbot:partsbot@postgres:5432/partsbot?sslmode=disable
       - TELEGRAM_TOKEN=8481467325:AAGh_hIif7sLXZsgTY3WqZZKvJHGcL5behI
+      - PART_API=5c52f6e4db91259648e10e3dfab5828e
     depends_on:
       postgres:
         condition: service_healthy
