@@ -4,7 +4,7 @@ import "errors"
 
 var (
 	ErrNameCanNotBeNull   = errors.New("название авто не может быть пустым")
-	ErrVinCanNotBeNull    = errors.New("вин код не может быть пустым")
+	ErrVinMustBe17        = errors.New("вин код должен состоять из 17 символов (английские буквы!)")
 	ErrCarId              = errors.New("car id is too short/long")
 	ErrUserId             = errors.New("user id is too short/long")
 	ErrItemName           = errors.New("product name is too long/short")

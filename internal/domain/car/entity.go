@@ -22,8 +22,8 @@ func NewCar(userID int64, name, vin string) (*Car, error) {
 		return nil, errors.ErrNameCanNotBeNull
 	}
 
-	if strings.TrimSpace(vin) == "" {
-		return nil, errors.ErrVinCanNotBeNull
+	if len(strings.TrimSpace(vin)) != 17 {
+		return nil, errors.ErrVinMustBe17
 	}
 
 	return &Car{
@@ -59,8 +59,8 @@ func (c *Car) ChangeName(newName string) error {
 
 func (c *Car) ChangeVin(newVin string) error {
 
-	if strings.TrimSpace(newVin) == "" {
-		return errors.ErrVinCanNotBeNull
+	if len(strings.TrimSpace(newVin)) != 17 {
+		return errors.ErrVinMustBe17
 	}
 
 	c.vin = newVin

@@ -28,7 +28,7 @@ type Adapter struct {
 // New создаёт адаптер
 func New(cfg Config) *Adapter {
 	if cfg.Timeout == 0 {
-		cfg.Timeout = 15 * time.Second
+		cfg.Timeout = 30 * time.Second
 	}
 	if cfg.BaseURL == "" {
 		cfg.BaseURL = "https://api.partsapi.ru" // ← замени после теста в кабинете
@@ -77,7 +77,7 @@ func (a *Adapter) GetPartsByVIN(ctx context.Context, vin, cat string, isOrigPart
         params.Add("type", "all") // или ""
     }
 	if cat != "" {
-		params.Add("cat", cat)
+		params.Add("cat", "1191")
 	}
 
 	fullURL := a.baseURL + "?" + params.Encode()
