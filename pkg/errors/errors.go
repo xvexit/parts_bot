@@ -22,4 +22,7 @@ var (
 	ErrCartIsEmpty        = errors.New("cart empty")
 	ErrDelivDay           = errors.New("delivery day cant be negative")
 	ErrItemNotFound       = errors.New("item not found")
+	ErrInvalidPassword    = errors.New("invalid password")
+	ErrInvalidEmail       = errors.New("invalid email")
+	ErrInvalidCredentials = errors.New("invalid credentials")
 )

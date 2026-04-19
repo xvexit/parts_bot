@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Оплата заказа</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="container" style="padding: 60px 0;">
+    <section class="panel panel--wide">
+      <h2>Оплата заказа</h2>
+      <p class="muted" id="info">Платежная страница загружена.</p>
+    </section>
+  </main>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const orderID = params.get("order_id");
+    const amount = params.get("amount");
+    const info = document.getElementById("info");
+    if (orderID && amount) {
+      info.textContent = `Заказ #${orderID}, сумма ${new Intl.NumberFormat("ru-RU").format(amount)} ₽. Для тестовой среды вернитесь в кабинет менеджера и подтвердите оплату.`;
+    }
+  </script>
+</body>
+</html>

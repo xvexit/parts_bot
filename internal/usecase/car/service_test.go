@@ -46,7 +46,7 @@ func TestAddCar(t *testing.T) {
 
 	service := Service{repo: repo}
 
-	dto := CarDto{
+	dto := CarInput{
 		UserID: 1,
 		Name:   "BMW",
 		VIN:    "123",

@@ -15,7 +15,7 @@ func NewService(repo car.Repository) *Service {
 	}
 }
 
-func (s *Service) Add(ctx context.Context, carDto CarDto) (*car.Car, error) { // защитить от создания множества машин на 1 акк
+func (s *Service) Add(ctx context.Context, carDto CarInput) (*car.Car, error) { // защитить от создания множества машин на 1 акк
 
 	ccar, err := car.NewCar(carDto.UserID, carDto.Name, carDto.VIN)
 	if err != nil {
@@ -35,11 +35,11 @@ func (s *Service) ChangeCar(ctx context.Context, id int64, newName string) (*car
 		return nil, err
 	}
 
-	if err := car.ChangeName(newName); err != nil{
+	if err := car.ChangeName(newName); err != nil {
 		return nil, err
 	}
 
-	if err := s.repo.Update(ctx, car); err != nil{
+	if err := s.repo.Update(ctx, car); err != nil {
 		return nil, err
 	}
 
@@ -52,11 +52,11 @@ func (s *Service) ChangeVin(ctx context.Context, id int64, newVin string) (*car.
 		return nil, err
 	}
 
-	if err := car.ChangeVin(newVin); err != nil{
+	if err := car.ChangeVin(newVin); err != nil {
 		return nil, err
 	}
 
-	if err := s.repo.Update(ctx, car); err != nil{
+	if err := s.repo.Update(ctx, car); err != nil {
 		return nil, err
 	}
 

@@ -2,26 +2,25 @@ package user
 
 import (
 	"partsBot/pkg/errors"
+
 	"strings"
 	"time"
 )
 
 type User struct {
-	id         int64
-	telegramID int64
-	name       string
-	phone      string
-	createdAt  time.Time
+	id        int64
+	name      string
+	email     Email
+	phone     string
+	password  Password
+	createdAt time.Time
 }
 
 func NewUser(
-	tgid int64,
 	name, phone string,
+	password Password,
+	email Email,
 ) (*User, error) {
-
-	if tgid <= 0 {
-		return nil, errors.ErrTgId
-	}
 
 	if strings.TrimSpace(name) == "" || len(name) > 50 {
 		return nil, errors.ErrUserName
@@ -32,10 +31,11 @@ func NewUser(
 	}
 
 	return &User{
-		telegramID: tgid,
-		name:       name,
-		phone:      phone,
-		createdAt:  time.Now(),
+		name:      name,
+		phone:     phone,
+		password:  password,
+		email:     email,
+		createdAt: time.Now(),
 	}, nil
 }
 
@@ -63,17 +63,19 @@ func (u *User) ChangeName(newName string) error {
 
 func RestoreUser(
 	id int64,
-	telegramID int64,
 	name, phone string,
+	email Email,
+	password Password,
 	createdAt time.Time,
 ) *User {
 
 	return &User{
-		id:         id,
-		telegramID: telegramID,
-		name:       name,
-		phone:      phone,
-		createdAt:  createdAt,
+		id:        id,
+		name:      name,
+		phone:     phone,
+		email:     email,
+		password:  password,
+		createdAt: createdAt,
 	}
 }
 
@@ -83,10 +85,6 @@ func (u *User) SetID(id int64) {
 
 func (u *User) ID() int64 {
 	return u.id
-}
-
-func (u *User) TelegramID() int64 {
-	return u.telegramID
 }
 
 func (u *User) Name() string {
@@ -99,4 +97,12 @@ func (u *User) Phone() string {
 
 func (u *User) CreatedAt() time.Time {
 	return u.createdAt
+}
+
+func (u *User) Email() Email {
+	return u.email
+}
+
+func (u *User) Pass() Password {
+	return u.password
 }

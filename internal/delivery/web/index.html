@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PartsBot Service</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <header class="header">
+    <div class="container header__inner">
+      <div>
+        <p class="badge">Auto Service Platform</p>
+        <h1>Платформа заказа автозапчастей</h1>
+      </div>
+      <p id="session-label" class="session-label">Гость</p>
+    </div>
+  </header>
+
+  <main class="container page-grid">
+    <section class="panel">
+      <h2>Авторизация покупателя</h2>
+      <form id="register-form" class="stack" novalidate>
+        <input id="reg-name" type="text" placeholder="Имя" required>
+        <input id="reg-phone" type="text" placeholder="+7..." required>
+        <input id="reg-email" type="email" placeholder="Email" required>
+        <input id="reg-password" type="password" placeholder="Пароль" required>
+        <input id="reg-address" type="text" placeholder="Адрес" required>
+        <button type="submit" class="btn btn--primary">Зарегистрировать покупателя</button>
+      </form>
+      <p id="register-error" class="form-error" role="alert" aria-live="polite"></p>
+
+      <form id="login-form" class="stack" novalidate>
+        <input id="login-email" type="email" placeholder="Email" required>
+        <input id="login-password" type="password" placeholder="Пароль" required>
+        <button type="submit" class="btn">Войти покупателю</button>
+      </form>
+      <p id="login-error" class="form-error" role="alert" aria-live="polite"></p>
+    </section>
+
+    <section class="panel panel--wide">
+      <h2>Поиск запчастей</h2>
+      <form id="search-form" class="row">
+        <input id="search-input" type="text" placeholder="Артикул, OEM, название или бренд" required>
+        <button type="submit" class="btn btn--primary">Найти</button>
+      </form>
+      <div id="parts-result" class="list"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Корзина покупателя</h2>
+      <div id="cart-container" class="list"></div>
+      <form id="checkout-form" class="stack">
+        <input id="checkout-address" type="text" placeholder="Адрес доставки" required>
+        <button type="submit" class="btn btn--primary">Создать заказ и перейти к оплате</button>
+      </form>
+      <p id="checkout-status" class="muted"></p>
+    </section>
+
+    <section class="panel">
+      <h2>Мои автомобили</h2>
+      <form id="car-form" class="stack">
+        <input id="car-name" type="text" placeholder="Название авто" required>
+        <input id="car-vin" type="text" minlength="17" maxlength="17" placeholder="VIN (17 символов)" required>
+        <button type="submit" class="btn">Добавить автомобиль</button>
+      </form>
+      <div id="cars-list" class="list"></div>
+    </section>
+
+    <section class="panel panel--wide">
+      <h2>Заказы покупателя</h2>
+      <div id="user-orders" class="list"></div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast"></div>
+  <script src="./main.js"></script>
+</body>
+</html>

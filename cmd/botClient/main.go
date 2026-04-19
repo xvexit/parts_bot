@@ -3,8 +3,9 @@ package main
 import (
 	"log"
 	"os"
-	"strconv"
 
+	"partsBot/internal/delivery/web"
+	"partsBot/internal/delivery/web/handler"
 	"partsBot/internal/infrastructure/db"
 	repo "partsBot/internal/infrastructure/repository"
 
@@ -14,12 +15,11 @@ import (
 	useruc "partsBot/internal/usecase/user"
 
 	adap "partsBot/internal/infrastructure/adapter"
-
-	vk "partsBot/internal/delivery/vk"
+	jauth "partsBot/internal/infrastructure/auth"
+	uauth "partsBot/internal/usecase/auth"
 )
 
 func main() {
-
 	// DB
 	dbConn, err := db.New(os.Getenv("DATABASE_URL"))
 	if err != nil {
@@ -35,38 +35,43 @@ func main() {
 	txManager := db.NewTxManager(dbConn.Pool())
 
 	// Services
+	tokenManager := jauth.NewJWTManager()
 	userService := useruc.NewService(userRepo)
 	carService := caruc.NewService(carRepo)
 	cartService := cartuc.NewService(cartRepo, orderRepo, txManager)
 	orderService := orderuc.NewService(orderRepo)
+	authService := uauth.NewService(tokenManager, userRepo)
 
 	partAdapter := adap.New(adap.Config{
 		APIKey: os.Getenv("PART_API"),
 	})
 
-	// BOT CORE
-	groupID, _ := strconv.Atoi(os.Getenv("GROUP_ID"))
+	userHandler := handler.NewUserHandler(userService)
+	cartHandler := handler.NewCartHandler(cartService, userService)
+	carHandler := handler.NewCarHandler(carService, userService)
+	orderHandler := handler.NewOrderHandler(orderService, userService)
+	partHandler := handler.NewPartsHandler(partAdapter, carService, userService)
+	authHandler := handler.NewAuthHandler(authService)
 
-	bot, err := vk.NewBot(os.Getenv("VK_API"), groupID)
-	if err != nil {
-		log.Fatal(err)
-	}
-	userHandler := vk.NewUserHandler(userService, bot)
-	cartHandler := vk.NewCartHandler(cartService, userService, bot)
-	carHandler := vk.NewCarHandler(carService, userService, bot)
-	orderHandler := vk.NewOrderHandler(orderService, userService, bot)
-	partHandler := vk.NewPartsHandler(partAdapter, carService, userService, bot)
-
-	router := vk.NewRouter(
+	router := web.NewRouter(
+		authHandler,
 		userHandler,
 		carHandler,
 		cartHandler,
 		orderHandler,
 		partHandler,
-		bot,
+		tokenManager,
 	)
 
-	bot.SetRouter(router)
+	server := web.NewServer(router)
+	if err := server.Start(); err != nil {
+		log.Fatal(err)
+	}
+}
 
-	bot.Start()
+func getEnv(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
 }

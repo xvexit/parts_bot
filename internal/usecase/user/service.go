@@ -1,74 +1,73 @@
-package user
+	package user
 
-import (
-	"context"
-	"partsBot/internal/domain/user"
-)
+	import (
+		"context"
+		"partsBot/internal/domain/user"
+	)
 
-type Service struct {
-	repo user.Repository
-}
-
-func NewService(repo user.Repository) *Service {
-	return &Service{
-		repo: repo,
-	}
-}
-
-func (s *Service) Register(
-	ctx context.Context,
-	dto UserDto,
-) (*user.User, error) {
-	userr, err := user.NewUser(dto.TelegramID, dto.Name, dto.Phone)
-	if err != nil {
-		return nil, err
+	type Service struct {
+		repo user.Repository
 	}
 
-	if err := s.repo.Create(ctx, userr); err != nil {
-		return nil, err
+	func NewService(repo user.Repository) *Service {
+		return &Service{
+			repo: repo,
+		}
 	}
 
-	return userr, nil
-}
+	func (s *Service) Register(
+		ctx context.Context,
+		dto UserInput,
+	) (*user.User, error) {
 
-func (s *Service) ChangeName(ctx context.Context, newName string, userID int64) (*user.User, error) {
-	userr, err := s.repo.GetByID(ctx, userID)
-	if err != nil {
-		return nil, err
+		pass, err := user.NewPassword(dto.Password)
+		if err != nil {
+			return nil, err
+		}
+
+		email, err := user.NewEmail(dto.Email) //баг пустой емаил не создастся (может сделать чтобы он возвращал укаpатель?)
+		if err != nil {
+			return nil, err
+		}
+
+		userr, err := user.NewUser(dto.Name, dto.Phone, pass, email)
+		if err != nil {
+			return nil, err
+		}
+
+		return s.repo.Create(ctx, userr);
 	}
 
-	if err := userr.ChangeName(newName); err != nil {
-		return nil, err
+	func (s *Service) ChangeName(ctx context.Context, newName string, userID int64) (*user.User, error) {
+		userr, err := s.repo.GetByID(ctx, userID)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := userr.ChangeName(newName); err != nil {
+			return nil, err
+		}
+
+		return s.repo.Update(ctx, userr)
 	}
 
-	if err := s.repo.Update(ctx, userr); err != nil {
-		return nil, err
+	func (s *Service) ChangePhone(ctx context.Context, newPhone string, userID int64) (*user.User, error) {
+		userr, err := s.repo.GetByID(ctx, userID)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := userr.ChangePhone(newPhone); err != nil {
+			return nil, err
+		}
+
+		return s.repo.Update(ctx, userr)
 	}
 
-	return userr, err
-}
-
-func (s *Service) ChangePhone(ctx context.Context, newPhone string, userID int64) (*user.User, error) {
-	userr, err := s.repo.GetByID(ctx, userID)
-	if err != nil {
-		return nil, err
+	func (s *Service) Delete(ctx context.Context, userID int64) error {
+		return s.repo.Delete(ctx, userID)
 	}
 
-	if err := userr.ChangePhone(newPhone); err != nil {
-		return nil, err
+	func (s *Service) GetByID(ctx context.Context, userID int64) (*user.User, error) {
+		return s.repo.GetByID(ctx, userID)
 	}
-
-	return userr, s.repo.Update(ctx, userr)
-}
-
-func (s *Service) Delete(ctx context.Context, userID int64) error {
-	return s.repo.Delete(ctx, userID)
-}
-
-func (s *Service) GetByID(ctx context.Context, userID int64) (*user.User, error) {
-	return s.repo.GetByID(ctx, userID)
-}
-
-func (s *Service) GetByTgID(ctx context.Context, userTgID int64) (*user.User, error) {
-	return s.repo.GetByTgID(ctx, userTgID)
-}

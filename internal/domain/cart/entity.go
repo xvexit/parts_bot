@@ -3,7 +3,7 @@ package cart
 import (
 	"partsBot/internal/domain/order"
 	"partsBot/pkg/errors"
-	"partsBot/pkg/money"
+	"partsBot/internal/domain/shared"
 	"strings"
 )
 

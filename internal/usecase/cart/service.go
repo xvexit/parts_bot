@@ -6,7 +6,7 @@ import (
 	"partsBot/internal/domain/order"
 	"partsBot/internal/infrastructure/db"
 	"partsBot/pkg/errors"
-	"partsBot/pkg/money"
+	"partsBot/internal/domain/shared"
 )
 
 type Service struct {

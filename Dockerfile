@@ -10,5 +10,6 @@ FROM alpine:latest
 RUN apk add --no-cache ca-certificates
 WORKDIR /app
 COPY --from=builder /partsbot .
+COPY --from=builder /app/internal/delivery/web /app/internal/delivery/web
 EXPOSE 8080
 CMD ["/app/partsbot"]

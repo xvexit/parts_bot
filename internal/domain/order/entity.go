@@ -2,7 +2,7 @@ package order
 
 import (
 	"partsBot/pkg/errors"
-	"partsBot/pkg/money"
+	"partsBot/internal/domain/shared"
 	"strings"
 	"time"
 )

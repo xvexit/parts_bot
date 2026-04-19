@@ -1,11 +1,13 @@
 package user
 
-import "context"
+import (
+	"context"
+)
 
 type Repository interface {
-	Create(ctx context.Context, user *User) error
-	Update(ctx context.Context, us *User) error
+	Create(ctx context.Context, us *User) (*User, error)
+	Update(ctx context.Context, us *User) (*User, error)
 	Delete(ctx context.Context, userID int64) error
 	GetByID(ctx context.Context, userID int64) (*User, error)
-	GetByTgID(ctx context.Context, userTgID int64) (*User, error)
+	GetByEmail(ctx context.Context, email string) (*User, error)
 }

@@ -4,7 +4,7 @@ import (
 	"context"
 	"partsBot/internal/domain/order"
 	"partsBot/internal/infrastructure/db"
-	"partsBot/pkg/money"
+	"partsBot/internal/domain/shared"
 )
 
 type PostgresOrderRepo struct {
