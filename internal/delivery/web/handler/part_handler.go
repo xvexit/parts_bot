@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log"
 	"net/http"
 	"strings"
 
@@ -25,9 +26,9 @@ func NewPartsHandler(parts *adap.Adapter, carService *caruc.Service, userService
 
 // SearchParts — GET /api/parts/search?part=...
 func (h *PartsHandler) SearchParts(w http.ResponseWriter, r *http.Request) {
-	query := strings.TrimSpace(r.URL.Query().Get("part"))
-	if query == "" {
-		writeJSON(w, http.StatusOK, "Query is required")
+	partID := strings.TrimSpace(r.URL.Query().Get("part"))
+	if partID == "" {
+		writeError(w, http.StatusBadRequest, "part is required")
 		return
 	}
 
@@ -45,16 +46,42 @@ func (h *PartsHandler) SearchParts(w http.ResponseWriter, r *http.Request) {
 
 	vin := cars[0].Vin()
 
-	parts, err := h.partsAdapter.GetPartsByVIN(r.Context(), vin, query, false)
+	parts, err := h.partsAdapter.GetPartsByVIN(r.Context(), vin, partID, false)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "Ошибка поиска запчастей")
 		return
 	}
 
-	if len(parts) == 0 {
-		writeJSON(w, http.StatusOK, "По запросу ничего не найдено")
+	writeJSON(w, http.StatusOK, map[string]any{
+		"items":   parts,
+		"message": "ok",
+	})
+}
+
+// SearchTree — GET /api/user/parts/tree
+func (h *PartsHandler) SearchTree(w http.ResponseWriter, r *http.Request) {
+	userID, err := getUserIDFromRequest(r)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 
-	writeJSON(w, http.StatusOK, parts)
+	cars, err := h.carService.ListByUser(r.Context(), userID)
+	if err != nil || len(cars) == 0 {
+		writeError(w, http.StatusBadRequest, "У пользователя нет добавленных автомобилей")
+		return
+	}
+
+	vin := cars[0].Vin()
+	nodes, err := h.partsAdapter.GetSearchTreeByVIN(r.Context(), vin)
+	if err != nil {
+		log.Printf("SearchTree failed for user=%d vin=%s: %v", userID, vin, err)
+		writeError(w, http.StatusBadRequest, "Ошибка загрузки дерева запчастей: "+err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"items":   nodes,
+		"message": "ok",
+	})
 }

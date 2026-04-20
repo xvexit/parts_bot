@@ -43,7 +43,9 @@ func main() {
 	authService := uauth.NewService(tokenManager, userRepo)
 
 	partAdapter := adap.New(adap.Config{
-		APIKey: os.Getenv("PART_API"),
+		APIKey:     os.Getenv("PART_API"),
+		APIKeyVIN:  os.Getenv("PART_API_VIN"),
+		APIKeyTree: os.Getenv("PART_API_TREE"),
 	})
 
 	userHandler := handler.NewUserHandler(userService)

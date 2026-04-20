@@ -3,74 +3,105 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PartsBot Service</title>
+  <title>PartsBot — запчасти</title>
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
   <header class="header">
     <div class="container header__inner">
-      <div>
+      <div class="header__brand">
         <p class="badge">Auto Service Platform</p>
         <h1>Платформа заказа автозапчастей</h1>
       </div>
+      <div id="header-auth-extra" class="header__actions"></div>
+      <nav id="app-nav" class="app-nav is-hidden" aria-label="Разделы">
+        <a href="#/search" class="app-nav__link" data-page="search">Поиск</a>
+        <a href="#/cabinet" class="app-nav__link" data-page="cabinet">Личный кабинет</a>
+        <a href="#/cart" class="app-nav__link" data-page="cart">Корзина</a>
+        <button type="button" id="btn-logout" class="btn btn--ghost">Выйти</button>
+      </nav>
       <p id="session-label" class="session-label">Гость</p>
     </div>
   </header>
 
-  <main class="container page-grid">
-    <section class="panel">
-      <h2>Авторизация покупателя</h2>
-      <form id="register-form" class="stack" novalidate>
-        <input id="reg-name" type="text" placeholder="Имя" required>
-        <input id="reg-phone" type="text" placeholder="+7..." required>
-        <input id="reg-email" type="email" placeholder="Email" required>
-        <input id="reg-password" type="password" placeholder="Пароль" required>
-        <input id="reg-address" type="text" placeholder="Адрес" required>
-        <button type="submit" class="btn btn--primary">Зарегистрировать покупателя</button>
-      </form>
-      <p id="register-error" class="form-error" role="alert" aria-live="polite"></p>
+  <main class="container main-area">
+    <!-- Экран входа / регистрации -->
+    <section id="view-auth" class="view view--auth">
+      <div class="auth-card panel">
+        <div class="auth-tabs" role="tablist">
+          <button type="button" class="auth-tabs__btn is-active" id="tab-login" data-auth-tab="login" role="tab" aria-selected="true">Вход</button>
+          <button type="button" class="auth-tabs__btn" id="tab-register" data-auth-tab="register" role="tab" aria-selected="false">Регистрация</button>
+        </div>
 
-      <form id="login-form" class="stack" novalidate>
-        <input id="login-email" type="email" placeholder="Email" required>
-        <input id="login-password" type="password" placeholder="Пароль" required>
-        <button type="submit" class="btn">Войти покупателю</button>
-      </form>
-      <p id="login-error" class="form-error" role="alert" aria-live="polite"></p>
+        <div id="panel-login" class="auth-panel is-active" role="tabpanel">
+          <h2 class="sr-only">Вход</h2>
+          <form id="login-form" class="stack" novalidate>
+            <input id="login-email" type="email" placeholder="Email" autocomplete="username" required>
+            <input id="login-password" type="password" placeholder="Пароль" autocomplete="current-password" required>
+            <button type="submit" class="btn btn--primary">Войти</button>
+          </form>
+          <p id="login-error" class="form-error" role="alert" aria-live="polite"></p>
+        </div>
+
+        <div id="panel-register" class="auth-panel" role="tabpanel">
+          <h2 class="sr-only">Регистрация</h2>
+          <form id="register-form" class="stack" novalidate>
+            <input id="reg-name" type="text" placeholder="Имя" required>
+            <input id="reg-phone" type="text" placeholder="Телефон (+7…)" required>
+            <input id="reg-email" type="email" placeholder="Email" autocomplete="email" required>
+            <input id="reg-password" type="password" placeholder="Пароль (от 6 символов)" autocomplete="new-password" required>
+            <input id="reg-address" type="text" placeholder="Адрес доставки" required>
+            <button type="submit" class="btn btn--primary">Зарегистрироваться</button>
+          </form>
+          <p id="register-error" class="form-error" role="alert" aria-live="polite"></p>
+        </div>
+      </div>
     </section>
 
-    <section class="panel panel--wide">
-      <h2>Поиск запчастей</h2>
-      <form id="search-form" class="row">
-        <input id="search-input" type="text" placeholder="Артикул, OEM, название или бренд" required>
-        <button type="submit" class="btn btn--primary">Найти</button>
-      </form>
-      <div id="parts-result" class="list"></div>
-    </section>
+    <!-- После входа: три «страницы» по hash -->
+    <div id="view-app" class="view view--app is-hidden">
+      <section id="page-search" class="app-page panel is-active" data-page="search">
+        <h2>Поиск запчастей</h2>
+        <form id="search-form" class="row" novalidate>
+          <input id="search-input" type="text" placeholder="Название узла (для фильтрации списка)">
+          <select id="search-node" required>
+            <option value="">Сначала загрузите дерево запчастей</option>
+          </select>
+          <button type="submit" class="btn btn--primary">Найти</button>
+        </form>
+        <p id="search-tree-status" class="muted"></p>
+        <div id="parts-result" class="list"></div>
+      </section>
 
-    <section class="panel">
-      <h2>Корзина покупателя</h2>
-      <div id="cart-container" class="list"></div>
-      <form id="checkout-form" class="stack">
-        <input id="checkout-address" type="text" placeholder="Адрес доставки" required>
-        <button type="submit" class="btn btn--primary">Создать заказ и перейти к оплате</button>
-      </form>
-      <p id="checkout-status" class="muted"></p>
-    </section>
+      <section id="page-cabinet" class="app-page panel" data-page="cabinet">
+        <h2>Личный кабинет</h2>
+        <div id="profile-card" class="profile-card">
+          <p><span class="muted">Имя:</span> <span id="profile-name">—</span></p>
+          <p><span class="muted">Email:</span> <span id="profile-email">—</span></p>
+          <p><span class="muted">Телефон:</span> <span id="profile-phone">—</span></p>
+          <p><span class="muted">ID в системе:</span> <span id="profile-user-id">—</span></p>
+        </div>
+        <h3 class="subsection-title">Мои автомобили</h3>
+        <form id="car-form" class="stack" novalidate>
+          <input id="car-name" type="text" placeholder="Название авто" required>
+          <input id="car-vin" type="text" minlength="17" maxlength="17" placeholder="VIN (17 символов)" required>
+          <button type="submit" class="btn btn--primary">Добавить автомобиль</button>
+        </form>
+        <div id="cars-list" class="list"></div>
+        <h3 class="subsection-title">Мои заказы</h3>
+        <div id="user-orders" class="list"></div>
+      </section>
 
-    <section class="panel">
-      <h2>Мои автомобили</h2>
-      <form id="car-form" class="stack">
-        <input id="car-name" type="text" placeholder="Название авто" required>
-        <input id="car-vin" type="text" minlength="17" maxlength="17" placeholder="VIN (17 символов)" required>
-        <button type="submit" class="btn">Добавить автомобиль</button>
-      </form>
-      <div id="cars-list" class="list"></div>
-    </section>
-
-    <section class="panel panel--wide">
-      <h2>Заказы покупателя</h2>
-      <div id="user-orders" class="list"></div>
-    </section>
+      <section id="page-cart" class="app-page panel" data-page="cart">
+        <h2>Корзина</h2>
+        <div id="cart-container" class="list"></div>
+        <form id="checkout-form" class="stack" novalidate>
+          <input id="checkout-address" type="text" placeholder="Адрес доставки" required>
+          <button type="submit" class="btn btn--primary">Оформить заказ</button>
+        </form>
+        <p id="checkout-status" class="muted checkout-status"></p>
+      </section>
+    </div>
   </main>
 
   <div id="toast" class="toast"></div>

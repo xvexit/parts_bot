@@ -1,14 +1,25 @@
 const API_BASE = "/api";
 const USER_TOKEN_KEY = "parts_user_token";
+const USER_PROFILE_KEY = "parts_user_profile";
+let partsTreeCache = [];
+
+const APP_PAGES = ["search", "cabinet", "cart"];
 
 function showToast(message) {
   const toast = document.getElementById("toast");
-  if (!toast) {
-    return;
-  }
+  if (!toast) return;
   toast.textContent = message;
   toast.classList.add("toast--visible");
   setTimeout(() => toast.classList.remove("toast--visible"), 2300);
+}
+
+function escapeHtml(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 function setFormError(id, message) {
@@ -36,19 +47,71 @@ function getUserToken() {
   return localStorage.getItem(USER_TOKEN_KEY) || "";
 }
 
+function getProfile() {
+  try {
+    return JSON.parse(localStorage.getItem(USER_PROFILE_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function saveProfile(partial) {
+  const prev = getProfile();
+  localStorage.setItem(USER_PROFILE_KEY, JSON.stringify({ ...prev, ...partial }));
+}
+
+function parseAccessTokenUserId(token) {
+  if (!token) return null;
+  try {
+    const parts = token.split(".");
+    if (parts.length < 2) return null;
+    const b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const pad = b64.length % 4;
+    const padded = pad ? b64 + "=".repeat(4 - pad) : b64;
+    const json = atob(padded);
+    const payload = JSON.parse(json);
+    if (typeof payload.user_id === "number") return payload.user_id;
+    if (typeof payload.user_id === "string") return parseInt(payload.user_id, 10) || null;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 function setUserToken(token) {
   localStorage.setItem(USER_TOKEN_KEY, token);
   updateSessionLabel();
+  applyRoute();
+}
+
+function clearSession() {
+  localStorage.removeItem(USER_TOKEN_KEY);
+  localStorage.removeItem(USER_PROFILE_KEY);
+  updateSessionLabel();
+  applyRoute();
 }
 
 function updateSessionLabel() {
   const node = document.getElementById("session-label");
   if (!node) return;
   if (getUserToken()) {
-    node.textContent = "Сессия: покупатель";
+    node.textContent = "В системе";
     return;
   }
   node.textContent = "Гость";
+}
+
+function renderProfilePanel() {
+  const p = getProfile();
+  const uid = parseAccessTokenUserId(getUserToken());
+  const elName = document.getElementById("profile-name");
+  const elEmail = document.getElementById("profile-email");
+  const elPhone = document.getElementById("profile-phone");
+  const elUid = document.getElementById("profile-user-id");
+  if (elName) elName.textContent = p.name || "—";
+  if (elEmail) elEmail.textContent = p.email || "—";
+  if (elPhone) elPhone.textContent = p.phone || "—";
+  if (elUid) elUid.textContent = uid != null ? String(uid) : "—";
 }
 
 function money(value) {
@@ -83,14 +146,12 @@ async function readErrorMessage(response) {
       }
     }
   } catch (_) {
-    // ignore
+    /* ignore */
   }
-
   const fallback = response.statusText || "Request failed";
   return `${response.status} ${fallback}`.trim();
 }
 
-/** Бэкенд иногда отдаёт массив, иногда строку-сообщение, иногда { items: [...] } */
 function normalizeListResponse(data) {
   if (Array.isArray(data)) {
     return { items: data, hint: "" };
@@ -104,7 +165,53 @@ function normalizeListResponse(data) {
   return { items: [], hint: "" };
 }
 
-async function apiRequest(path, options = {}, role = "user") {
+function renderPartsTreeOptions(items, filter = "") {
+  const select = document.getElementById("search-node");
+  if (!select) return;
+
+  const q = String(filter || "").trim().toLowerCase();
+  const filtered = q
+    ? items.filter((item) => {
+      const text = String(item.text || "").toLowerCase();
+      const path = String(item.path || "").toLowerCase();
+      return text.includes(q) || path.includes(q);
+    })
+    : items;
+
+  if (!filtered.length) {
+    select.innerHTML = `<option value="">${q ? "Ничего не найдено по фильтру" : "Нет доступных узлов"}</option>`;
+    return;
+  }
+
+  select.innerHTML = `<option value="">Выберите узел</option>${filtered.map((item) => `
+    <option value="${escapeHtml(String(item.id || ""))}">${escapeHtml(item.path || item.text || item.id || "")}</option>
+  `).join("")}`;
+}
+
+async function loadPartsTree(force = false) {
+  if (!force && partsTreeCache.length) return;
+
+  const status = document.getElementById("search-tree-status");
+  if (status) status.textContent = "Загружаем дерево запчастей...";
+
+  const response = await apiRequest("/user/parts/tree");
+  if (!response.ok) {
+    const msg = await readErrorMessage(response);
+    if (status) status.textContent = msg || "Не удалось загрузить дерево узлов.";
+    renderPartsTreeOptions([]);
+    return;
+  }
+
+  const data = await response.json();
+  const { items, hint } = normalizeListResponse(data);
+  partsTreeCache = items || [];
+  renderPartsTreeOptions(partsTreeCache);
+  if (status) {
+    status.textContent = hint || `Загружено узлов: ${partsTreeCache.length}`;
+  }
+}
+
+async function apiRequest(path, options = {}) {
   const headers = { ...(options.headers || {}) };
   const token = getUserToken();
   if (token) {
@@ -113,8 +220,78 @@ async function apiRequest(path, options = {}, role = "user") {
   return fetch(`${API_BASE}${path}`, { ...options, headers });
 }
 
+function parseHashPage() {
+  const raw = (location.hash || "#/").replace(/^#\/?/, "").split("/")[0] || "search";
+  return APP_PAGES.includes(raw) ? raw : "search";
+}
+
+function setActiveAppPage(page) {
+  document.querySelectorAll(".app-page").forEach((el) => {
+    el.classList.toggle("is-active", el.dataset.page === page);
+  });
+  document.querySelectorAll(".app-nav__link").forEach((el) => {
+    el.classList.toggle("is-active", el.dataset.page === page);
+  });
+  if (page === "cabinet") {
+    renderProfilePanel();
+    loadCars();
+    loadUserOrders();
+  }
+  if (page === "cart") {
+    loadCart();
+  }
+  if (page === "search") {
+    loadPartsTree();
+  }
+}
+
+function applyRoute() {
+  const viewAuth = document.getElementById("view-auth");
+  const viewApp = document.getElementById("view-app");
+  const appNav = document.getElementById("app-nav");
+  const token = getUserToken();
+
+  if (!token) {
+    viewAuth?.classList.remove("is-hidden");
+    viewApp?.classList.add("is-hidden");
+    appNav?.classList.add("is-hidden");
+    if (location.hash && location.hash !== "#/" && location.hash !== "") {
+      history.replaceState(null, "", `${location.pathname}${location.search}#/`);
+    }
+    return;
+  }
+
+  viewAuth?.classList.add("is-hidden");
+  viewApp?.classList.remove("is-hidden");
+  appNav?.classList.remove("is-hidden");
+
+  let page = parseHashPage();
+  if (!location.hash || location.hash === "#/" || location.hash === "#") {
+    page = "search";
+    history.replaceState(null, "", `${location.pathname}${location.search}#/search`);
+  }
+  setActiveAppPage(page);
+}
+
+function switchAuthTab(tab) {
+  const loginTab = document.getElementById("tab-login");
+  const regTab = document.getElementById("tab-register");
+  const loginPanel = document.getElementById("panel-login");
+  const regPanel = document.getElementById("panel-register");
+  const isLogin = tab === "login";
+  loginTab?.classList.toggle("is-active", isLogin);
+  regTab?.classList.toggle("is-active", !isLogin);
+  loginTab?.setAttribute("aria-selected", isLogin ? "true" : "false");
+  regTab?.setAttribute("aria-selected", isLogin ? "false" : "true");
+  loginPanel?.classList.toggle("is-active", isLogin);
+  regPanel?.classList.toggle("is-active", !isLogin);
+  setFormError("login-error", "");
+  setFormError("register-error", "");
+}
+
 function renderParts(items) {
   const node = document.getElementById("parts-result");
+  if (!node) return;
   if (!items.length) {
     node.innerHTML = "<p class='muted'>По вашему запросу нет результатов.</p>";
     return;
@@ -125,11 +302,11 @@ function renderParts(items) {
     <article class="item">
       <div class="item__row">
         <div>
-          <strong>${item.name}</strong>
-          <p class="muted">${item.brand} • ${item.part_id} • ${item.delivery_day} дн.</p>
+          <strong>${escapeHtml(item.name)}</strong>
+          <p class="muted">${escapeHtml(item.brand)} • ${escapeHtml(item.part_id)} • ${escapeHtml(String(item.delivery_day))} дн.</p>
           <p>${money(item.price)}</p>
         </div>
-        <button type="button" class="btn btn--primary" data-add-part="${encoded}">Добавить</button>
+        <button type="button" class="btn btn--primary" data-add-part="${encoded}">В корзину</button>
       </div>
     </article>
   `;
@@ -138,15 +315,16 @@ function renderParts(items) {
 
 async function loadCart() {
   const node = document.getElementById("cart-container");
+  if (!node) return;
   const response = await apiRequest("/user/cart");
   if (!response.ok) {
-    node.innerHTML = "<p class='muted'>Войдите как покупатель для работы с корзиной.</p>";
+    node.innerHTML = "<p class='muted'>Не удалось загрузить корзину.</p>";
     return;
   }
   const data = await response.json();
   const { items, hint } = normalizeListResponse(data);
   if (!items.length) {
-    node.innerHTML = `<p class='muted'>${hint || "Корзина пуста."}</p>`;
+    node.innerHTML = `<p class='muted'>${escapeHtml(hint || "Корзина пуста.")}</p>`;
     return;
   }
   node.innerHTML = `
@@ -154,10 +332,10 @@ async function loadCart() {
       <article class="item">
         <div class="item__row">
           <div>
-            <strong>${item.name}</strong>
-            <p class="muted">${item.brand} • ${money(item.price)} × ${item.quantity}</p>
+            <strong>${escapeHtml(item.name)}</strong>
+            <p class="muted">${escapeHtml(item.brand)} • ${money(item.price)} × ${escapeHtml(String(item.quantity))}</p>
           </div>
-          <button class="btn btn--danger" data-remove-part="${encodeURIComponent(item.part_id)}">Удалить</button>
+          <button type="button" class="btn btn--danger" data-remove-part="${encodeURIComponent(item.part_id)}">Удалить</button>
         </div>
       </article>
     `).join("")}
@@ -165,45 +343,55 @@ async function loadCart() {
   `;
 }
 
+function carVin(item) {
+  if (item == null) return "";
+  return item.vin ?? item.VIN ?? item.Vin ?? "";
+}
+
 async function loadCars() {
   const node = document.getElementById("cars-list");
+  if (!node) return;
   const response = await apiRequest("/user/cars");
   if (!response.ok) {
-    node.innerHTML = "<p class='muted'>Авторизуйтесь как покупатель.</p>";
+    node.innerHTML = "<p class='muted'>Не удалось загрузить автомобили.</p>";
     return;
   }
   const data = await response.json();
   const { items, hint } = normalizeListResponse(data);
   if (!items.length) {
-    node.innerHTML = `<p class='muted'>${hint || "Нет добавленных авто."}</p>`;
+    node.innerHTML = `<p class='muted'>${escapeHtml(hint || "Нет добавленных авто.")}</p>`;
     return;
   }
-  node.innerHTML = items.map((item) => `
+  node.innerHTML = items.map((item) => {
+    const vin = carVin(item);
+    return `
     <article class="item">
       <div class="item__row">
         <div>
-          <strong>${item.name}</strong>
-          <p class="muted">VIN: ${item.vin}</p>
+          <strong>${escapeHtml(item.name)}</strong>
+          <p class="muted vin-line">VIN: <span class="vin-code">${escapeHtml(vin)}</span></p>
         </div>
-        <button class="btn btn--danger" data-car-delete="${item.id}">Удалить</button>
+        <button type="button" class="btn btn--danger" data-car-delete="${escapeHtml(String(item.id))}">Удалить</button>
       </div>
     </article>
-  `).join("");
+  `;
+  }).join("");
 }
 
 function renderUserOrders(items) {
   const node = document.getElementById("user-orders");
+  if (!node) return;
   if (!items.length) {
     node.innerHTML = "<p class='muted'>У вас пока нет заказов.</p>";
     return;
   }
   node.innerHTML = items.map((order) => `
     <article class="item">
-      <strong>Заказ #${order.id}</strong>
-      <p class="muted">Статус: ${order.status} • Оплата: ${order.payment_status}</p>
-      <p class="muted">Адрес: ${order.address}</p>
+      <strong>Заказ #${escapeHtml(String(order.id))}</strong>
+      <p class="muted">Статус: ${escapeHtml(String(order.status))} • Оплата: ${escapeHtml(String(order.payment_status))}</p>
+      <p class="muted">Адрес: ${escapeHtml(String(order.address))}</p>
       <p><strong>${money(order.total || 0)}</strong></p>
-      ${order.payment_url ? `<a class="btn" href="${order.payment_url}" target="_blank" rel="noopener">Ссылка на оплату</a>` : ""}
+      ${order.payment_url ? `<a class="btn" href="${escapeHtml(order.payment_url)}" target="_blank" rel="noopener">Ссылка на оплату</a>` : ""}
     </article>
   `).join("");
 }
@@ -219,28 +407,57 @@ async function loadUserOrders() {
   renderUserOrders(items);
 }
 
-document.getElementById("search-form").addEventListener("submit", async (event) => {
+function afterAuthSuccess() {
+  renderProfilePanel();
+  loadCars();
+  loadCart();
+  loadUserOrders();
+  if (!location.hash || location.hash === "#/" || location.hash === "#") {
+    history.replaceState(null, "", `${location.pathname}${location.search}#/search`);
+  }
+  applyRoute();
+}
+
+document.getElementById("tab-login")?.addEventListener("click", () => switchAuthTab("login"));
+document.getElementById("tab-register")?.addEventListener("click", () => switchAuthTab("register"));
+
+window.addEventListener("hashchange", () => applyRoute());
+
+document.getElementById("btn-logout")?.addEventListener("click", () => {
+  clearSession();
+  switchAuthTab("login");
+  showToast("Вы вышли из аккаунта");
+});
+
+document.getElementById("search-form")?.addEventListener("submit", async (event) => {
   event.preventDefault();
-  const query = document.getElementById("search-input").value.trim();
-  if (!query) {
+  const partID = document.getElementById("search-node")?.value?.trim();
+  if (!partID) {
+    showToast("Выберите узел из дерева");
     return;
   }
-  const response = await fetch(`${API_BASE}/parts/search?q=${encodeURIComponent(query)}`);
+  const response = await apiRequest(`/parts/search?part=${encodeURIComponent(partID)}`);
   if (!response.ok) {
-    showToast("Ошибка поиска");
+    showToast(await readErrorMessage(response));
     return;
   }
   const data = await response.json();
-  renderParts(data.items || []);
+  const { items, hint } = normalizeListResponse(data);
+  renderParts(items || []);
+  if (hint && !items.length) {
+    showToast(hint);
+  }
 });
 
-document.getElementById("parts-result").addEventListener("click", async (event) => {
+document.getElementById("search-input")?.addEventListener("input", (event) => {
+  renderPartsTreeOptions(partsTreeCache, event.target?.value || "");
+});
+
+document.getElementById("parts-result")?.addEventListener("click", async (event) => {
   const button = event.target.closest("[data-add-part]");
-  if (!button) {
-    return;
-  }
+  if (!button) return;
   if (!getUserToken()) {
-    showToast("Сначала войдите как покупатель");
+    showToast("Войдите в аккаунт");
     return;
   }
   const payload = JSON.parse(decodeURIComponent(button.getAttribute("data-add-part") || ""));
@@ -252,18 +469,16 @@ document.getElementById("parts-result").addEventListener("click", async (event) 
     body: JSON.stringify(payload)
   });
   if (!response.ok) {
-    showToast("Не удалось добавить в корзину");
+    showToast(await readErrorMessage(response));
     return;
   }
   showToast("Товар добавлен в корзину");
   loadCart();
 });
 
-document.getElementById("cart-container").addEventListener("click", async (event) => {
+document.getElementById("cart-container")?.addEventListener("click", async (event) => {
   const button = event.target.closest("[data-remove-part]");
-  if (!button) {
-    return;
-  }
+  if (!button) return;
   const response = await apiRequest(`/user/cart/items/${button.dataset.removePart}`, { method: "DELETE" });
   if (!response.ok) {
     showToast("Не удалось удалить товар");
@@ -273,12 +488,12 @@ document.getElementById("cart-container").addEventListener("click", async (event
   loadCart();
 });
 
-document.getElementById("checkout-form").addEventListener("submit", async (event) => {
+document.getElementById("checkout-form")?.addEventListener("submit", async (event) => {
   event.preventDefault();
   const statusNode = document.getElementById("checkout-status");
-  const payload = { address: document.getElementById("checkout-address").value.trim() };
+  const payload = { address: document.getElementById("checkout-address")?.value.trim() || "" };
   if (!payload.address) {
-    statusNode.textContent = "Введите адрес доставки.";
+    if (statusNode) statusNode.textContent = "Введите адрес доставки.";
     return;
   }
   const response = await apiRequest("/user/cart/checkout", {
@@ -287,15 +502,17 @@ document.getElementById("checkout-form").addEventListener("submit", async (event
     body: JSON.stringify(payload)
   });
   if (!response.ok) {
-    statusNode.textContent = await readErrorMessage(response);
+    if (statusNode) statusNode.textContent = await readErrorMessage(response);
     return;
   }
   const data = await response.json();
   const orderId = data.order_id ?? data.id;
   const amount = data.amount ?? data.total ?? 0;
-  statusNode.textContent = orderId
-    ? `Заказ #${orderId} создан.${amount ? ` Сумма: ${money(amount)}.` : ""} ${data.message || ""}`.trim()
-    : (data.message || "Заказ создан.");
+  if (statusNode) {
+    statusNode.textContent = orderId
+      ? `Заказ #${orderId} создан.${amount ? ` Сумма: ${money(amount)}.` : ""} ${data.message || ""}`.trim()
+      : (data.message || "Заказ создан.");
+  }
   showToast("Заказ оформлен");
   if (data.payment_url) {
     window.open(data.payment_url, "_blank", "noopener");
@@ -304,22 +521,21 @@ document.getElementById("checkout-form").addEventListener("submit", async (event
   loadUserOrders();
 });
 
-document.getElementById("register-form").addEventListener("submit", async (event) => {
+document.getElementById("register-form")?.addEventListener("submit", async (event) => {
   event.preventDefault();
   const form = event.currentTarget;
   clearFieldErrors(form);
   setFormError("register-error", "");
-
   const submitBtn = form.querySelector('button[type="submit"]');
   if (submitBtn) submitBtn.disabled = true;
 
   try {
     const payload = {
-      name: document.getElementById("reg-name").value.trim(),
-      phone: normalizePhone(document.getElementById("reg-phone").value),
-      email: document.getElementById("reg-email").value.trim(),
-      password: document.getElementById("reg-password").value,
-      address: document.getElementById("reg-address").value.trim()
+      name: document.getElementById("reg-name")?.value.trim() || "",
+      phone: normalizePhone(document.getElementById("reg-phone")?.value || ""),
+      email: document.getElementById("reg-email")?.value.trim() || "",
+      password: document.getElementById("reg-password")?.value || "",
+      address: document.getElementById("reg-address")?.value.trim() || ""
     };
 
     if (!payload.name) {
@@ -337,7 +553,7 @@ document.getElementById("register-form").addEventListener("submit", async (event
       markFieldError(document.getElementById("reg-email"));
       return;
     }
-    if (String(payload.password || "").trim().length < 6) {
+    if (String(payload.password).trim().length < 6) {
       setFormError("register-error", "Пароль должен быть минимум 6 символов");
       markFieldError(document.getElementById("reg-password"));
       return;
@@ -358,7 +574,6 @@ document.getElementById("register-form").addEventListener("submit", async (event
       return;
     }
 
-    // Register returns a user model; obtain token via login.
     const loginResponse = await fetch(`${API_BASE}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -369,12 +584,15 @@ document.getElementById("register-form").addEventListener("submit", async (event
       return;
     }
     const tokens = await loginResponse.json();
+    saveProfile({
+      name: payload.name,
+      email: payload.email,
+      phone: payload.phone,
+      address: payload.address
+    });
     setUserToken(tokens.access_token);
-    showToast("Покупатель зарегистрирован и авторизован");
-
-    loadCars();
-    loadCart();
-    loadUserOrders();
+    showToast("Добро пожаловать!");
+    afterAuthSuccess();
   } catch (err) {
     const msg = err && err.message ? err.message : String(err);
     setFormError("register-error", `Ошибка: ${msg}`);
@@ -384,19 +602,18 @@ document.getElementById("register-form").addEventListener("submit", async (event
   }
 });
 
-document.getElementById("login-form").addEventListener("submit", async (event) => {
+document.getElementById("login-form")?.addEventListener("submit", async (event) => {
   event.preventDefault();
   const form = event.currentTarget;
   clearFieldErrors(form);
   setFormError("login-error", "");
-
   const submitBtn = form.querySelector('button[type="submit"]');
   if (submitBtn) submitBtn.disabled = true;
 
   try {
     const payload = {
-      email: document.getElementById("login-email").value.trim(),
-      password: document.getElementById("login-password").value
+      email: document.getElementById("login-email")?.value.trim() || "",
+      password: document.getElementById("login-password")?.value || ""
     };
 
     if (!isValidEmail(payload.email)) {
@@ -422,13 +639,10 @@ document.getElementById("login-form").addEventListener("submit", async (event) =
     }
 
     const data = await response.json();
-
-    setUserToken(data.access_token); // ✅ FIX
-    showToast("Покупатель авторизован");
-
-    loadCars();
-    loadCart();
-    loadUserOrders();
+    saveProfile({ email: payload.email });
+    setUserToken(data.access_token);
+    showToast("Вы вошли в аккаунт");
+    afterAuthSuccess();
   } catch (err) {
     const msg = err && err.message ? err.message : String(err);
     setFormError("login-error", `Ошибка: ${msg}`);
@@ -438,11 +652,11 @@ document.getElementById("login-form").addEventListener("submit", async (event) =
   }
 });
 
-document.getElementById("car-form").addEventListener("submit", async (event) => {
+document.getElementById("car-form")?.addEventListener("submit", async (event) => {
   event.preventDefault();
   const payload = {
-    name: document.getElementById("car-name").value.trim(),
-    vin: document.getElementById("car-vin").value.trim()
+    name: document.getElementById("car-name")?.value.trim() || "",
+    vin: (document.getElementById("car-vin")?.value || "").trim().toUpperCase()
   };
   const response = await apiRequest("/user/cars", {
     method: "POST",
@@ -450,18 +664,17 @@ document.getElementById("car-form").addEventListener("submit", async (event) => 
     body: JSON.stringify(payload)
   });
   if (!response.ok) {
-    showToast("Ошибка при добавлении авто");
+    showToast(await readErrorMessage(response));
     return;
   }
   showToast("Авто добавлено");
+  document.getElementById("car-form")?.reset();
   loadCars();
 });
 
-document.getElementById("cars-list").addEventListener("click", async (event) => {
+document.getElementById("cars-list")?.addEventListener("click", async (event) => {
   const button = event.target.closest("[data-car-delete]");
-  if (!button) {
-    return;
-  }
+  if (!button) return;
   const response = await apiRequest(`/user/cars/${button.dataset.carDelete}`, { method: "DELETE" });
   if (!response.ok) {
     showToast("Ошибка удаления авто");
@@ -472,6 +685,8 @@ document.getElementById("cars-list").addEventListener("click", async (event) => 
 });
 
 updateSessionLabel();
-loadCars();
-loadCart();
-loadUserOrders();
+applyRoute();
+if (getUserToken()) {
+  afterAuthSuccess();
+  loadPartsTree();
+}

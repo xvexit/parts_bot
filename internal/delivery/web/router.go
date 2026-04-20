@@ -38,9 +38,11 @@ func NewRouter(
 	// PROTECTED
 	userRouter := api.PathPrefix("/user").Subrouter()
 	userRouter.Use(middleware.Auth(tm))
+	userRouter.HandleFunc("/parts/tree", partsH.SearchTree).Methods("GET")
 
 	userRouter.HandleFunc("/cars", carH.MyCars).Methods("GET")
 	userRouter.HandleFunc("/cars", carH.AddCar).Methods("POST")
+	userRouter.HandleFunc("/cars/{id:[0-9]+}", carH.DeleteCar).Methods("DELETE")
 
 	userRouter.HandleFunc("/cart", cartH.ShowCart).Methods("GET")
 	userRouter.HandleFunc("/cart/items", cartH.AddItem).Methods("POST")
