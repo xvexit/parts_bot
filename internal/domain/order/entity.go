@@ -1,8 +1,8 @@
 package order
 
 import (
-	"partsBot/pkg/errors"
 	"partsBot/internal/domain/shared"
+	"partsBot/pkg/errors"
 	"strings"
 	"time"
 )

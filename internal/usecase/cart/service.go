@@ -4,9 +4,9 @@ import (
 	"context"
 	"partsBot/internal/domain/cart"
 	"partsBot/internal/domain/order"
+	"partsBot/internal/domain/shared"
 	"partsBot/internal/infrastructure/db"
 	"partsBot/pkg/errors"
-	"partsBot/internal/domain/shared"
 )
 
 type Service struct {

@@ -75,14 +75,7 @@ func (h *CartHandler) AddItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req struct {
-		PartID      string `json:"part_id"`
-		Name        string `json:"name"`
-		Brand       string `json:"brand"`
-		Quantity    int64  `json:"quantity"`
-		DeliveryDay int    `json:"delivery_day"`
-		ImageURL    string `json:"image_url,omitempty"`
-	}
+	var req CartItemDto
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "Invalid JSON")
@@ -93,6 +86,7 @@ func (h *CartHandler) AddItem(w http.ResponseWriter, r *http.Request) {
 		PartID:      req.PartID,
 		Name:        req.Name,
 		Brand:       req.Brand,
+		Price:       0, //test hardcode
 		Quantity:    req.Quantity,
 		DeliveryDay: req.DeliveryDay,
 		ImageURL:    req.ImageURL,

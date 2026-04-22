@@ -63,13 +63,10 @@
       <section id="page-search" class="app-page panel is-active" data-page="search">
         <h2>Поиск запчастей</h2>
         <form id="search-form" class="row" novalidate>
-          <input id="search-input" type="text" placeholder="Название узла (для фильтрации списка)">
-          <select id="search-node" required>
-            <option value="">Сначала загрузите дерево запчастей</option>
-          </select>
+          <input id="search-input" type="text" placeholder="Артикул, название или бренд" required>
           <button type="submit" class="btn btn--primary">Найти</button>
         </form>
-        <p id="search-tree-status" class="muted"></p>
+        <p id="search-status" class="muted"></p>
         <div id="parts-result" class="list"></div>
       </section>
 

@@ -39,6 +39,7 @@ func NewRouter(
 	userRouter := api.PathPrefix("/user").Subrouter()
 	userRouter.Use(middleware.Auth(tm))
 	userRouter.HandleFunc("/parts/tree", partsH.SearchTree).Methods("GET")
+	userRouter.HandleFunc("/parts/check", partsH.CheckPartOffer).Methods("POST")
 
 	userRouter.HandleFunc("/cars", carH.MyCars).Methods("GET")
 	userRouter.HandleFunc("/cars", carH.AddCar).Methods("POST")

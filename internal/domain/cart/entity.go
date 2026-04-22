@@ -2,8 +2,8 @@ package cart
 
 import (
 	"partsBot/internal/domain/order"
-	"partsBot/pkg/errors"
 	"partsBot/internal/domain/shared"
+	"partsBot/pkg/errors"
 	"strings"
 )
 

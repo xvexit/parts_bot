@@ -1,7 +1,6 @@
 const API_BASE = "/api";
 const USER_TOKEN_KEY = "parts_user_token";
 const USER_PROFILE_KEY = "parts_user_profile";
-let partsTreeCache = [];
 
 const APP_PAGES = ["search", "cabinet", "cart"];
 
@@ -165,52 +164,6 @@ function normalizeListResponse(data) {
   return { items: [], hint: "" };
 }
 
-function renderPartsTreeOptions(items, filter = "") {
-  const select = document.getElementById("search-node");
-  if (!select) return;
-
-  const q = String(filter || "").trim().toLowerCase();
-  const filtered = q
-    ? items.filter((item) => {
-      const text = String(item.text || "").toLowerCase();
-      const path = String(item.path || "").toLowerCase();
-      return text.includes(q) || path.includes(q);
-    })
-    : items;
-
-  if (!filtered.length) {
-    select.innerHTML = `<option value="">${q ? "Ничего не найдено по фильтру" : "Нет доступных узлов"}</option>`;
-    return;
-  }
-
-  select.innerHTML = `<option value="">Выберите узел</option>${filtered.map((item) => `
-    <option value="${escapeHtml(String(item.id || ""))}">${escapeHtml(item.path || item.text || item.id || "")}</option>
-  `).join("")}`;
-}
-
-async function loadPartsTree(force = false) {
-  if (!force && partsTreeCache.length) return;
-
-  const status = document.getElementById("search-tree-status");
-  if (status) status.textContent = "Загружаем дерево запчастей...";
-
-  const response = await apiRequest("/user/parts/tree");
-  if (!response.ok) {
-    const msg = await readErrorMessage(response);
-    if (status) status.textContent = msg || "Не удалось загрузить дерево узлов.";
-    renderPartsTreeOptions([]);
-    return;
-  }
-
-  const data = await response.json();
-  const { items, hint } = normalizeListResponse(data);
-  partsTreeCache = items || [];
-  renderPartsTreeOptions(partsTreeCache);
-  if (status) {
-    status.textContent = hint || `Загружено узлов: ${partsTreeCache.length}`;
-  }
-}
-
 async function apiRequest(path, options = {}) {
   const headers = { ...(options.headers || {}) };
   const token = getUserToken();
@@ -239,9 +192,6 @@ function setActiveAppPage(page) {
   }
   if (page === "cart") {
     loadCart();
-  }
-  if (page === "search") {
-    loadPartsTree();
   }
 }
 
@@ -306,7 +256,10 @@ function renderParts(items) {
           <p class="muted">${escapeHtml(item.brand)} • ${escapeHtml(item.part_id)} • ${escapeHtml(String(item.delivery_day))} дн.</p>
           <p>${money(item.price)}</p>
         </div>
-        <button type="button" class="btn btn--primary" data-add-part="${encoded}">В корзину</button>
+        <div>
+          <button type="button" class="btn btn--primary" data-add-part="${encoded}">В корзину</button>
+          <button type="button" class="btn" data-check-part="${escapeHtml(item.part_id)}" data-check-name="${escapeHtml(item.name)}">Уточнить срок</button>
+        </div>
       </div>
     </article>
   `;
@@ -431,49 +384,71 @@ document.getElementById("btn-logout")?.addEventListener("click", () => {
 
 document.getElementById("search-form")?.addEventListener("submit", async (event) => {
   event.preventDefault();
-  const partID = document.getElementById("search-node")?.value?.trim();
-  if (!partID) {
-    showToast("Выберите узел из дерева");
+  const query = document.getElementById("search-input")?.value?.trim();
+  const statusNode = document.getElementById("search-status");
+  if (!query) {
+    showToast("Введите запрос");
     return;
   }
-  const response = await apiRequest(`/parts/search?part=${encodeURIComponent(partID)}`);
+  const response = await apiRequest(`/parts/search?q=${encodeURIComponent(query)}`);
   if (!response.ok) {
     showToast(await readErrorMessage(response));
+    if (statusNode) statusNode.textContent = "Ошибка поиска";
     return;
   }
   const data = await response.json();
   const { items, hint } = normalizeListResponse(data);
   renderParts(items || []);
-  if (hint && !items.length) {
-    showToast(hint);
+  if (statusNode) {
+    statusNode.textContent = hint || `Найдено позиций: ${items.length}`;
   }
-});
-
-document.getElementById("search-input")?.addEventListener("input", (event) => {
-  renderPartsTreeOptions(partsTreeCache, event.target?.value || "");
 });
 
 document.getElementById("parts-result")?.addEventListener("click", async (event) => {
   const button = event.target.closest("[data-add-part]");
-  if (!button) return;
+  if (button) {
+    if (!getUserToken()) {
+      showToast("Войдите в аккаунт");
+      return;
+    }
+    const payload = JSON.parse(decodeURIComponent(button.getAttribute("data-add-part") || ""));
+    payload.quantity = 1;
+    payload.image_url = "";
+    const response = await apiRequest("/user/cart/items", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    if (!response.ok) {
+      showToast(await readErrorMessage(response));
+      return;
+    }
+    showToast("Товар добавлен в корзину");
+    loadCart();
+    return;
+  }
+
+  const checkBtn = event.target.closest("[data-check-part]");
+  if (!checkBtn) return;
   if (!getUserToken()) {
     showToast("Войдите в аккаунт");
     return;
   }
-  const payload = JSON.parse(decodeURIComponent(button.getAttribute("data-add-part") || ""));
-  payload.quantity = 1;
-  payload.image_url = "";
-  const response = await apiRequest("/user/cart/items", {
+
+  const response = await apiRequest("/user/parts/check", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
+    body: JSON.stringify({
+      part_id: checkBtn.dataset.checkPart || "",
+      name: checkBtn.dataset.checkName || ""
+    })
   });
   if (!response.ok) {
     showToast(await readErrorMessage(response));
     return;
   }
-  showToast("Товар добавлен в корзину");
-  loadCart();
+  const data = await response.json();
+  showToast(data.message || "Уточнение выполнено");
 });
 
 document.getElementById("cart-container")?.addEventListener("click", async (event) => {
@@ -688,5 +663,4 @@ updateSessionLabel();
 applyRoute();
 if (getUserToken()) {
   afterAuthSuccess();
-  loadPartsTree();
 }

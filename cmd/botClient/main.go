@@ -12,6 +12,7 @@ import (
 	caruc "partsBot/internal/usecase/car"
 	cartuc "partsBot/internal/usecase/cart"
 	orderuc "partsBot/internal/usecase/order"
+	partuc "partsBot/internal/usecase/part"
 	useruc "partsBot/internal/usecase/user"
 
 	adap "partsBot/internal/infrastructure/adapter"
@@ -31,6 +32,7 @@ func main() {
 	carRepo := repo.NewPostgresCarRepo(dbConn)
 	cartRepo := repo.NewPostgresCartRepo(dbConn)
 	orderRepo := repo.NewPostgresOrderRepo(dbConn)
+	partRepo := repo.NewPostgresPartCatalogRepo(dbConn)
 
 	txManager := db.NewTxManager(dbConn.Pool())
 
@@ -40,6 +42,7 @@ func main() {
 	carService := caruc.NewService(carRepo)
 	cartService := cartuc.NewService(cartRepo, orderRepo, txManager)
 	orderService := orderuc.NewService(orderRepo)
+	partService := partuc.NewService(partRepo)
 	authService := uauth.NewService(tokenManager, userRepo)
 
 	partAdapter := adap.New(adap.Config{
@@ -52,7 +55,7 @@ func main() {
 	cartHandler := handler.NewCartHandler(cartService, userService)
 	carHandler := handler.NewCarHandler(carService, userService)
 	orderHandler := handler.NewOrderHandler(orderService, userService)
-	partHandler := handler.NewPartsHandler(partAdapter, carService, userService)
+	partHandler := handler.NewPartsHandler(partAdapter, carService, partService, userService)
 	authHandler := handler.NewAuthHandler(authService)
 
 	router := web.NewRouter(
