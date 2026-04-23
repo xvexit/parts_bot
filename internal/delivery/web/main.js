@@ -93,20 +93,18 @@ function clearSession() {
 function updateSessionLabel() {
   const node = document.getElementById("session-label");
   if (!node) return;
-  if (getUserToken()) {
-    node.textContent = "В системе";
-    return;
-  }
-  node.textContent = "Гость";
+  node.textContent = getUserToken() ? "В системе" : "Гость";
 }
 
 function renderProfilePanel() {
   const p = getProfile();
   const uid = parseAccessTokenUserId(getUserToken());
+
   const elName = document.getElementById("profile-name");
   const elEmail = document.getElementById("profile-email");
   const elPhone = document.getElementById("profile-phone");
   const elUid = document.getElementById("profile-user-id");
+
   if (elName) elName.textContent = p.name || "—";
   if (elEmail) elEmail.textContent = p.email || "—";
   if (elPhone) elPhone.textContent = p.phone || "—";
@@ -114,7 +112,7 @@ function renderProfilePanel() {
 }
 
 function money(value) {
-  return `${new Intl.NumberFormat("ru-RU").format(value)} ₽`;
+  return `${new Intl.NumberFormat("ru-RU").format(Number(value || 0))} ₽`;
 }
 
 function isValidEmail(value) {
@@ -145,7 +143,7 @@ async function readErrorMessage(response) {
       }
     }
   } catch (_) {
-    /* ignore */
+    // ignore
   }
   const fallback = response.statusText || "Request failed";
   return `${response.status} ${fallback}`.trim();
@@ -159,7 +157,10 @@ function normalizeListResponse(data) {
     return { items: [], hint: data };
   }
   if (data && typeof data === "object" && Array.isArray(data.items)) {
-    return { items: data.items, hint: typeof data.message === "string" ? data.message : "" };
+    return {
+      items: data.items,
+      hint: typeof data.message === "string" ? data.message : ""
+    };
   }
   return { items: [], hint: "" };
 }
@@ -167,9 +168,11 @@ function normalizeListResponse(data) {
 async function apiRequest(path, options = {}) {
   const headers = { ...(options.headers || {}) };
   const token = getUserToken();
+
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
+
   return fetch(`${API_BASE}${path}`, { ...options, headers });
 }
 
@@ -182,14 +185,17 @@ function setActiveAppPage(page) {
   document.querySelectorAll(".app-page").forEach((el) => {
     el.classList.toggle("is-active", el.dataset.page === page);
   });
+
   document.querySelectorAll(".app-nav__link").forEach((el) => {
     el.classList.toggle("is-active", el.dataset.page === page);
   });
+
   if (page === "cabinet") {
     renderProfilePanel();
     loadCars();
     loadUserOrders();
   }
+
   if (page === "cart") {
     loadCart();
   }
@@ -220,6 +226,7 @@ function applyRoute() {
     page = "search";
     history.replaceState(null, "", `${location.pathname}${location.search}#/search`);
   }
+
   setActiveAppPage(page);
 }
 
@@ -229,12 +236,16 @@ function switchAuthTab(tab) {
   const loginPanel = document.getElementById("panel-login");
   const regPanel = document.getElementById("panel-register");
   const isLogin = tab === "login";
+
   loginTab?.classList.toggle("is-active", isLogin);
   regTab?.classList.toggle("is-active", !isLogin);
+
   loginTab?.setAttribute("aria-selected", isLogin ? "true" : "false");
   regTab?.setAttribute("aria-selected", isLogin ? "false" : "true");
+
   loginPanel?.classList.toggle("is-active", isLogin);
   regPanel?.classList.toggle("is-active", !isLogin);
+
   setFormError("login-error", "");
   setFormError("register-error", "");
 }
@@ -242,44 +253,50 @@ function switchAuthTab(tab) {
 function renderParts(items) {
   const node = document.getElementById("parts-result");
   if (!node) return;
+
   if (!items.length) {
     node.innerHTML = "<p class='muted'>По вашему запросу нет результатов.</p>";
     return;
   }
+
   node.innerHTML = items.map((item) => {
     const encoded = encodeURIComponent(JSON.stringify(item));
     return `
-    <article class="item">
-      <div class="item__row">
-        <div>
-          <strong>${escapeHtml(item.name)}</strong>
-          <p class="muted">${escapeHtml(item.brand)} • ${escapeHtml(item.part_id)} • ${escapeHtml(String(item.delivery_day))} дн.</p>
-          <p>${money(item.price)}</p>
+      <article class="item">
+        <div class="item__row">
+          <div>
+            <strong>${escapeHtml(item.name)}</strong>
+            <p class="muted">${escapeHtml(item.brand)} • ${escapeHtml(item.part_id)} • ${escapeHtml(String(item.delivery_day))} дн.</p>
+            <p>${money(item.price)}</p>
+          </div>
+          <div>
+            <button type="button" class="btn btn--primary" data-add-part="${encoded}">В корзину</button>
+            <button type="button" class="btn" data-check-part="${escapeHtml(item.part_id)}" data-check-name="${escapeHtml(item.name)}">Уточнить срок</button>
+          </div>
         </div>
-        <div>
-          <button type="button" class="btn btn--primary" data-add-part="${encoded}">В корзину</button>
-          <button type="button" class="btn" data-check-part="${escapeHtml(item.part_id)}" data-check-name="${escapeHtml(item.name)}">Уточнить срок</button>
-        </div>
-      </div>
-    </article>
-  `;
+      </article>
+    `;
   }).join("");
 }
 
 async function loadCart() {
   const node = document.getElementById("cart-container");
   if (!node) return;
+
   const response = await apiRequest("/user/cart");
   if (!response.ok) {
     node.innerHTML = "<p class='muted'>Не удалось загрузить корзину.</p>";
     return;
   }
+
   const data = await response.json();
   const { items, hint } = normalizeListResponse(data);
+
   if (!items.length) {
     node.innerHTML = `<p class='muted'>${escapeHtml(hint || "Корзина пуста.")}</p>`;
     return;
   }
+
   node.innerHTML = `
     ${items.map((item) => `
       <article class="item">
@@ -304,70 +321,152 @@ function carVin(item) {
 async function loadCars() {
   const node = document.getElementById("cars-list");
   if (!node) return;
+
   const response = await apiRequest("/user/cars");
   if (!response.ok) {
     node.innerHTML = "<p class='muted'>Не удалось загрузить автомобили.</p>";
     return;
   }
+
   const data = await response.json();
   const { items, hint } = normalizeListResponse(data);
+
   if (!items.length) {
     node.innerHTML = `<p class='muted'>${escapeHtml(hint || "Нет добавленных авто.")}</p>`;
     return;
   }
+
   node.innerHTML = items.map((item) => {
     const vin = carVin(item);
     return `
-    <article class="item">
-      <div class="item__row">
-        <div>
-          <strong>${escapeHtml(item.name)}</strong>
-          <p class="muted vin-line">VIN: <span class="vin-code">${escapeHtml(vin)}</span></p>
+      <article class="item">
+        <div class="item__row">
+          <div>
+            <strong>${escapeHtml(item.name)}</strong>
+            <p class="muted vin-line">VIN: <span class="vin-code">${escapeHtml(vin)}</span></p>
+          </div>
+          <button type="button" class="btn btn--danger" data-car-delete="${escapeHtml(String(item.id))}">Удалить</button>
         </div>
-        <button type="button" class="btn btn--danger" data-car-delete="${escapeHtml(String(item.id))}">Удалить</button>
-      </div>
-    </article>
-  `;
+      </article>
+    `;
   }).join("");
+}
+
+async function createPaymentForOrder(orderId) {
+  const response = await apiRequest(`/user/orders/${orderId}/pay`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      return_url: `${location.origin}/payment-result.html`
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+
+  return response.json();
+}
+
+function canCreatePayment(order) {
+  const orderStatus = String(order?.status || "").toLowerCase();
+  const paymentStatus = String(order?.payment_status || "").toLowerCase();
+
+  if (["delivered", "confirmed", "paid", "canceled"].includes(orderStatus)) {
+    return false;
+  }
+
+  if (paymentStatus === "succeeded") {
+    return false;
+  }
+
+  return true;
 }
 
 function renderUserOrders(items) {
   const node = document.getElementById("user-orders");
   if (!node) return;
-  if (!items.length) {
+
+  if (!items || !items.length) {
     node.innerHTML = "<p class='muted'>У вас пока нет заказов.</p>";
     return;
   }
-  node.innerHTML = items.map((order) => `
-    <article class="item">
-      <strong>Заказ #${escapeHtml(String(order.id))}</strong>
-      <p class="muted">Статус: ${escapeHtml(String(order.status))} • Оплата: ${escapeHtml(String(order.payment_status))}</p>
-      <p class="muted">Адрес: ${escapeHtml(String(order.address))}</p>
-      <p><strong>${money(order.total || 0)}</strong></p>
-      ${order.payment_url ? `<a class="btn" href="${escapeHtml(order.payment_url)}" target="_blank" rel="noopener">Ссылка на оплату</a>` : ""}
-    </article>
-  `).join("");
+
+  node.innerHTML = items.map((order) => {
+    const orderDate = new Date(order.created_at).toLocaleDateString("ru-RU", {
+      day: "numeric",
+      month: "long",
+      year: "numeric"
+    });
+
+    const paymentStatus = order.payment_status || "нет";
+    const allowPay = canCreatePayment(order);
+
+    return `
+      <article class="item order-card">
+        <p class="order-title">Заказ #${escapeHtml(String(order.id))}</p>
+
+        <p class="muted">
+          Создан: ${orderDate} • Статус заказа:
+          <strong>${escapeHtml(String(order.status))}</strong>
+        </p>
+
+        <p class="muted">
+          Статус оплаты:
+          <strong>${escapeHtml(String(paymentStatus))}</strong>
+        </p>
+
+        <p class="muted">Адрес: ${escapeHtml(String(order.address))}</p>
+
+        <p class="order-price">${money(order.total || 0)}</p>
+
+        <div class="order-actions">
+          ${order.payment_url ? `
+            <a class="btn" href="${escapeHtml(order.payment_url)}" target="_blank" rel="noopener">
+              Открыть оплату
+            </a>
+          ` : ""}
+
+          ${allowPay ? `
+            <button type="button" class="btn btn--primary" data-order-pay="${escapeHtml(String(order.id))}">
+              Оплатить
+            </button>
+          ` : ""}
+        </div>
+      </article>
+    `;
+  }).join("");
 }
 
 async function loadUserOrders() {
   const response = await apiRequest("/user/orders");
+  const userOrdersNode = document.getElementById("user-orders");
+  if (!userOrdersNode) return;
+
   if (!response.ok) {
-    renderUserOrders([]);
+    userOrdersNode.innerHTML = "<p class='muted'>Не удалось загрузить заказы.</p>";
     return;
   }
+
   const data = await response.json();
-  const { items } = normalizeListResponse(data);
-  renderUserOrders(items);
+  const { items, hint } = normalizeListResponse(data);
+
+  if (items.length === 0 && hint) {
+    userOrdersNode.innerHTML = `<p class='muted'>${escapeHtml(hint)}</p>`;
+  } else {
+    renderUserOrders(items);
+  }
 }
 
 function afterAuthSuccess() {
   renderProfilePanel();
   loadCars();
   loadCart();
-  loadUserOrders();
+
   if (!location.hash || location.hash === "#/" || location.hash === "#") {
     history.replaceState(null, "", `${location.pathname}${location.search}#/search`);
   }
+
   applyRoute();
 }
 
@@ -384,21 +483,26 @@ document.getElementById("btn-logout")?.addEventListener("click", () => {
 
 document.getElementById("search-form")?.addEventListener("submit", async (event) => {
   event.preventDefault();
+
   const query = document.getElementById("search-input")?.value?.trim();
   const statusNode = document.getElementById("search-status");
+
   if (!query) {
     showToast("Введите запрос");
     return;
   }
+
   const response = await apiRequest(`/parts/search?q=${encodeURIComponent(query)}`);
   if (!response.ok) {
     showToast(await readErrorMessage(response));
     if (statusNode) statusNode.textContent = "Ошибка поиска";
     return;
   }
+
   const data = await response.json();
   const { items, hint } = normalizeListResponse(data);
   renderParts(items || []);
+
   if (statusNode) {
     statusNode.textContent = hint || `Найдено позиций: ${items.length}`;
   }
@@ -411,18 +515,22 @@ document.getElementById("parts-result")?.addEventListener("click", async (event)
       showToast("Войдите в аккаунт");
       return;
     }
+
     const payload = JSON.parse(decodeURIComponent(button.getAttribute("data-add-part") || ""));
     payload.quantity = 1;
     payload.image_url = "";
+
     const response = await apiRequest("/user/cart/items", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     });
+
     if (!response.ok) {
       showToast(await readErrorMessage(response));
       return;
     }
+
     showToast("Товар добавлен в корзину");
     loadCart();
     return;
@@ -430,6 +538,7 @@ document.getElementById("parts-result")?.addEventListener("click", async (event)
 
   const checkBtn = event.target.closest("[data-check-part]");
   if (!checkBtn) return;
+
   if (!getUserToken()) {
     showToast("Войдите в аккаунт");
     return;
@@ -443,10 +552,12 @@ document.getElementById("parts-result")?.addEventListener("click", async (event)
       name: checkBtn.dataset.checkName || ""
     })
   });
+
   if (!response.ok) {
     showToast(await readErrorMessage(response));
     return;
   }
+
   const data = await response.json();
   showToast(data.message || "Уточнение выполнено");
 });
@@ -454,53 +565,96 @@ document.getElementById("parts-result")?.addEventListener("click", async (event)
 document.getElementById("cart-container")?.addEventListener("click", async (event) => {
   const button = event.target.closest("[data-remove-part]");
   if (!button) return;
-  const response = await apiRequest(`/user/cart/items/${button.dataset.removePart}`, { method: "DELETE" });
+
+  const response = await apiRequest(`/user/cart/items/${button.dataset.removePart}`, {
+    method: "DELETE"
+  });
+
   if (!response.ok) {
-    showToast("Не удалось удалить товар");
+    showToast(await readErrorMessage(response));
     return;
   }
+
   showToast("Позиция удалена");
   loadCart();
 });
 
 document.getElementById("checkout-form")?.addEventListener("submit", async (event) => {
   event.preventDefault();
+
   const statusNode = document.getElementById("checkout-status");
-  const payload = { address: document.getElementById("checkout-address")?.value.trim() || "" };
+  const payload = {
+    address: document.getElementById("checkout-address")?.value.trim() || ""
+  };
+
   if (!payload.address) {
     if (statusNode) statusNode.textContent = "Введите адрес доставки.";
     return;
   }
+
   const response = await apiRequest("/user/cart/checkout", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload)
   });
+
   if (!response.ok) {
     if (statusNode) statusNode.textContent = await readErrorMessage(response);
     return;
   }
+
   const data = await response.json();
   const orderId = data.order_id ?? data.id;
   const amount = data.amount ?? data.total ?? 0;
+
   if (statusNode) {
     statusNode.textContent = orderId
-      ? `Заказ #${orderId} создан.${amount ? ` Сумма: ${money(amount)}.` : ""} ${data.message || ""}`.trim()
+      ? `Заказ #${orderId} создан.${amount ? ` Сумма: ${money(amount)}.` : ""} Теперь его можно оплатить в разделе "Мои заказы".`
       : (data.message || "Заказ создан.");
   }
+
   showToast("Заказ оформлен");
-  if (data.payment_url) {
-    window.open(data.payment_url, "_blank", "noopener");
-  }
+  document.getElementById("checkout-form")?.reset();
+
   loadCart();
   loadUserOrders();
+
+  history.replaceState(null, "", `${location.pathname}${location.search}#/cabinet`);
+  applyRoute();
+});
+
+document.getElementById("user-orders")?.addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-order-pay]");
+  if (!button) return;
+
+  const orderId = button.dataset.orderPay;
+  if (!orderId) return;
+
+  button.disabled = true;
+
+  try {
+    const payment = await createPaymentForOrder(orderId);
+    showToast("Ссылка на оплату создана");
+
+    if (payment.payment_url) {
+      window.open(payment.payment_url, "_blank", "noopener");
+    }
+
+    loadUserOrders();
+  } catch (err) {
+    showToast(err?.message || "Не удалось создать оплату");
+  } finally {
+    button.disabled = false;
+  }
 });
 
 document.getElementById("register-form")?.addEventListener("submit", async (event) => {
   event.preventDefault();
+
   const form = event.currentTarget;
   clearFieldErrors(form);
   setFormError("register-error", "");
+
   const submitBtn = form.querySelector('button[type="submit"]');
   if (submitBtn) submitBtn.disabled = true;
 
@@ -518,21 +672,25 @@ document.getElementById("register-form")?.addEventListener("submit", async (even
       markFieldError(document.getElementById("reg-name"));
       return;
     }
+
     if (!payload.phone) {
       setFormError("register-error", "Введите телефон");
       markFieldError(document.getElementById("reg-phone"));
       return;
     }
+
     if (!isValidEmail(payload.email)) {
       setFormError("register-error", "Введите корректный email");
       markFieldError(document.getElementById("reg-email"));
       return;
     }
+
     if (String(payload.password).trim().length < 6) {
       setFormError("register-error", "Пароль должен быть минимум 6 символов");
       markFieldError(document.getElementById("reg-password"));
       return;
     }
+
     if (!payload.address) {
       setFormError("register-error", "Введите адрес");
       markFieldError(document.getElementById("reg-address"));
@@ -544,6 +702,7 @@ document.getElementById("register-form")?.addEventListener("submit", async (even
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     });
+
     if (!response.ok) {
       setFormError("register-error", await readErrorMessage(response));
       return;
@@ -552,19 +711,26 @@ document.getElementById("register-form")?.addEventListener("submit", async (even
     const loginResponse = await fetch(`${API_BASE}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: payload.email, password: payload.password })
+      body: JSON.stringify({
+        email: payload.email,
+        password: payload.password
+      })
     });
+
     if (!loginResponse.ok) {
       setFormError("register-error", await readErrorMessage(loginResponse));
       return;
     }
+
     const tokens = await loginResponse.json();
+
     saveProfile({
       name: payload.name,
       email: payload.email,
       phone: payload.phone,
       address: payload.address
     });
+
     setUserToken(tokens.access_token);
     showToast("Добро пожаловать!");
     afterAuthSuccess();
@@ -579,9 +745,11 @@ document.getElementById("register-form")?.addEventListener("submit", async (even
 
 document.getElementById("login-form")?.addEventListener("submit", async (event) => {
   event.preventDefault();
+
   const form = event.currentTarget;
   clearFieldErrors(form);
   setFormError("login-error", "");
+
   const submitBtn = form.querySelector('button[type="submit"]');
   if (submitBtn) submitBtn.disabled = true;
 
@@ -596,6 +764,7 @@ document.getElementById("login-form")?.addEventListener("submit", async (event) 
       markFieldError(document.getElementById("login-email"));
       return;
     }
+
     if (!payload.password) {
       setFormError("login-error", "Введите пароль");
       markFieldError(document.getElementById("login-password"));
@@ -629,19 +798,23 @@ document.getElementById("login-form")?.addEventListener("submit", async (event) 
 
 document.getElementById("car-form")?.addEventListener("submit", async (event) => {
   event.preventDefault();
+
   const payload = {
     name: document.getElementById("car-name")?.value.trim() || "",
     vin: (document.getElementById("car-vin")?.value || "").trim().toUpperCase()
   };
+
   const response = await apiRequest("/user/cars", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload)
   });
+
   if (!response.ok) {
     showToast(await readErrorMessage(response));
     return;
   }
+
   showToast("Авто добавлено");
   document.getElementById("car-form")?.reset();
   loadCars();
@@ -650,17 +823,23 @@ document.getElementById("car-form")?.addEventListener("submit", async (event) =>
 document.getElementById("cars-list")?.addEventListener("click", async (event) => {
   const button = event.target.closest("[data-car-delete]");
   if (!button) return;
-  const response = await apiRequest(`/user/cars/${button.dataset.carDelete}`, { method: "DELETE" });
+
+  const response = await apiRequest(`/user/cars/${button.dataset.carDelete}`, {
+    method: "DELETE"
+  });
+
   if (!response.ok) {
     showToast("Ошибка удаления авто");
     return;
   }
+
   showToast("Авто удалено");
   loadCars();
 });
 
 updateSessionLabel();
 applyRoute();
+
 if (getUserToken()) {
   afterAuthSuccess();
 }

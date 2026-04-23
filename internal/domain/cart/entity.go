@@ -126,7 +126,6 @@ func (c *Cart) Items() []CartItem {
 }
 
 func (cart *Cart) NewOrderFromCart(address string) (*order.Order, error) {
-
 	if cart.IsEmpty() {
 		return nil, errors.ErrCartIsEmpty
 	}
@@ -136,6 +135,7 @@ func (cart *Cart) NewOrderFromCart(address string) (*order.Order, error) {
 	}
 
 	items := make([]order.OrderItem, 0, len(cart.items))
+	ttl, _ := money.New(0)
 
 	for _, item := range cart.items {
 		orderItem, err := order.NewOrderItem(
@@ -150,10 +150,11 @@ func (cart *Cart) NewOrderFromCart(address string) (*order.Order, error) {
 			return nil, err
 		}
 
+		ttl = ttl.Add(item.price.Mul(item.quantity))
 		items = append(items, *orderItem)
 	}
 
-	return order.NewOrder(cart.userID, address, items)
+	return order.NewOrder(cart.userID, address, items, ttl)
 }
 
 func (c *Cart) ItemsCount() int {

@@ -25,7 +25,7 @@ func (r *PostgresUserRepo) Create(ctx context.Context, us *user.User) (*user.Use
 	RETURNING id
 	`
 
-		var id int64
+	var id int64
 
 	err := exec.QueryRow(
 		ctx,
@@ -155,40 +155,39 @@ func (r *PostgresUserRepo) GetByEmail(ctx context.Context, email string) (*user.
 // 	), nil
 // }
 
-
 func scanUser(row scanner) (*user.User, error) {
 	var m UserModel
 
 	err := row.Scan(
-		&m.id,
-		&m.name,
-		&m.email,
-		&m.phone,
-		&m.password,
-		&m.createdAt,
+		&m.ID,
+		&m.Name,
+		&m.Email,
+		&m.Phone,
+		&m.Password,
+		&m.CreatedAt,
 	)
 	if err != nil {
 		return nil, err
 	}
 
 	var emailVO user.Email
-	if m.email != nil {
-		e, err := user.EmailFromDB(*m.email)
+	if m.Email != nil {
+		e, err := user.EmailFromDB(*m.Email)
 		if err != nil {
 			return nil, err
 		}
 		emailVO = e
 	}
 
-	passVO := user.PasswordFromHash(m.password)
+	passVO := user.PasswordFromHash(m.Password)
 
 	return user.RestoreUser(
-		m.id,
-		m.name,
-		m.phone,
+		m.ID,
+		m.Name,
+		m.Phone,
 		emailVO,
 		passVO,
-		m.createdAt,
+		m.CreatedAt,
 	), nil
 }
 

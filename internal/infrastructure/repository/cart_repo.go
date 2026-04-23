@@ -3,8 +3,8 @@ package repository
 import (
 	"context"
 	"partsBot/internal/domain/cart"
+	money "partsBot/internal/domain/shared"
 	"partsBot/internal/infrastructure/db"
-	"partsBot/internal/domain/shared"
 )
 
 type PostgresCartRepo struct {
@@ -73,7 +73,7 @@ func (r *PostgresCartRepo) GetByUserID(ctx context.Context, userID int64) (*cart
 	}
 
 	for rows.Next() {
-		dto := CartItemDto{}
+		dto := CartItemModel{}
 
 		err := rows.Scan(
 			&dto.PartID,
@@ -154,7 +154,7 @@ func (r *PostgresCartRepo) GetByUserIDForUpdate(
 
 	for rows.Next() {
 
-		dto := CartItemDto{}
+		dto := CartItemModel{}
 
 		err := rows.Scan(
 			&dto.PartID,

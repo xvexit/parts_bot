@@ -3,9 +3,12 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	cartuc "partsBot/internal/usecase/cart"
 	useruc "partsBot/internal/usecase/user"
+
+	"github.com/gorilla/mux"
 )
 
 type CartHandler struct {
@@ -86,7 +89,7 @@ func (h *CartHandler) AddItem(w http.ResponseWriter, r *http.Request) {
 		PartID:      req.PartID,
 		Name:        req.Name,
 		Brand:       req.Brand,
-		Price:       0, //test hardcode
+		Price:       req.Price, //can test hardcode
 		Quantity:    req.Quantity,
 		DeliveryDay: req.DeliveryDay,
 		ImageURL:    req.ImageURL,
@@ -133,5 +136,29 @@ func (h *CartHandler) Checkout(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, map[string]any{
 		"order_id": order.ID(),
 		"message":  "Заказ успешно создан",
+	})
+}
+
+// RemoveItem — DELETE /api/user/cart/items/{part_id}
+func (h *CartHandler) RemoveItem(w http.ResponseWriter, r *http.Request) {
+	userID, err := getUserIDFromRequest(r)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	partID := strings.TrimSpace(mux.Vars(r)["part_id"])
+	if partID == "" {
+		writeError(w, http.StatusBadRequest, "part_id is required")
+		return
+	}
+
+	if err := h.cartService.RemoveItem(r.Context(), userID, partID); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{
+		"message": "Товар удален из корзины",
 	})
 }

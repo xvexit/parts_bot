@@ -150,5 +150,3 @@ func (s *Service) Checkout(
 
 	return ord, nil
 }
-
-// updateStatus

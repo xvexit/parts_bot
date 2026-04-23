@@ -75,7 +75,7 @@ func (r *PostgresCarRepo) GetByID(ctx context.Context, id int64) (*car.Car, erro
 	WHERE id = $1
 	`
 
-	dto := CarDTO{}
+	dto := CarModel{}
 
 	err := exec.QueryRow(
 		ctx,
@@ -98,7 +98,7 @@ func (r *PostgresCarRepo) GetByID(ctx context.Context, id int64) (*car.Car, erro
 		dto.Name,
 		dto.VIN,
 	)
-	
+
 	return car, nil
 }
 
@@ -125,7 +125,7 @@ func (r *PostgresCarRepo) ListByUser(ctx context.Context, userID int64) ([]car.C
 	var carSl []car.Car
 
 	for rows.Next() {
-		dto := CarDTO{}
+		dto := CarModel{}
 
 		err := rows.Scan(
 			&dto.ID,
@@ -148,7 +148,7 @@ func (r *PostgresCarRepo) ListByUser(ctx context.Context, userID int64) ([]car.C
 		carSl = append(carSl, *car)
 	}
 
-	if err := rows.Err(); err != nil{
+	if err := rows.Err(); err != nil {
 		return nil, err
 	}
 

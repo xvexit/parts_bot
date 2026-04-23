@@ -6,18 +6,25 @@ import (
 
 	"github.com/gorilla/mux"
 	orderuc "partsBot/internal/usecase/order"
+	paymentuc "partsBot/internal/usecase/payment"
 	useruc "partsBot/internal/usecase/user"
 )
 
 type OrderHandler struct {
-	orderService *orderuc.Service
-	userService  *useruc.Service
+	orderService   *orderuc.Service
+	paymentService *paymentuc.Service
+	userService    *useruc.Service
 }
 
-func NewOrderHandler(orderService *orderuc.Service, userService *useruc.Service) *OrderHandler {
+func NewOrderHandler(
+	orderService *orderuc.Service,
+	paymentService *paymentuc.Service,
+	userService *useruc.Service,
+) *OrderHandler {
 	return &OrderHandler{
-		orderService: orderService,
-		userService:  userService,
+		orderService:   orderService,
+		paymentService: paymentService,
+		userService:    userService,
 	}
 }
 
@@ -40,7 +47,21 @@ func (h *OrderHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, orders)
+	resp := make([]OrderResponse, 0, len(orders))
+
+	for _, ord := range orders {
+		orderResp := toOrderResponse(ord)
+
+		lastPayment, err := h.paymentService.GetLastByOrderID(r.Context(), userID, ord.ID())
+		if err == nil && lastPayment != nil {
+			orderResp.PaymentStatus = lastPayment.Status()
+			orderResp.PaymentURL = lastPayment.PaymentURL()
+		}
+
+		resp = append(resp, orderResp)
+	}
+
+	writeJSON(w, http.StatusOK, resp)
 }
 
 // OrderItems — GET /api/user/orders/{order_id}/items

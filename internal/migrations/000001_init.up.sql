@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS orders (
     user_id BIGINT NOT NULL REFERENCES users(id),
     address VARCHAR(50) NOT NULL,
     status VARCHAR(50) NOT NULL,
+    total BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id);
@@ -47,3 +48,21 @@ CREATE TABLE IF NOT EXISTS order_items (
     quantity INT NOT NULL,
     delivery_day INT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS payments (
+    id BIGSERIAL PRIMARY KEY,
+    order_id BIGINT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    amount BIGINT NOT NULL CHECK (amount > 0),
+    provider VARCHAR(50) NOT NULL,
+    provider_txn_id VARCHAR(255) UNIQUE,
+    payment_url TEXT,
+    status VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT now(),
+    updated_at TIMESTAMP NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_payments_order_id
+    ON payments(order_id);
+
+CREATE INDEX IF NOT EXISTS idx_payments_provider_txn_id
+    ON payments(provider_txn_id);

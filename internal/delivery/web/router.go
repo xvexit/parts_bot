@@ -20,24 +20,25 @@ func NewRouter(
 	carH *handler.CarHandler,
 	cartH *handler.CartHandler,
 	orderH *handler.OrderHandler,
+	paymentH *handler.PaymentHandler,
 	partsH *handler.PartsHandler,
 	tm auth.TokenManager,
 ) *Router {
-
 	r := mux.NewRouter()
 
-	// ========== API PREFIX ==========
 	api := r.PathPrefix("/api").Subrouter()
 
-	// PUBLIC
 	api.HandleFunc("/auth/register", userH.Register).Methods("POST")
 	api.HandleFunc("/auth/login", authH.Login).Methods("POST")
 	api.HandleFunc("/auth/refresh", authH.Refresh).Methods("POST")
 	api.HandleFunc("/parts/search", partsH.SearchParts).Methods("GET")
 
-	// PROTECTED
+	// mock callback / confirm
+	api.HandleFunc("/payments/mock/confirm", paymentH.MockConfirm).Methods("POST")
+
 	userRouter := api.PathPrefix("/user").Subrouter()
 	userRouter.Use(middleware.Auth(tm))
+
 	userRouter.HandleFunc("/parts/tree", partsH.SearchTree).Methods("GET")
 	userRouter.HandleFunc("/parts/check", partsH.CheckPartOffer).Methods("POST")
 
@@ -47,12 +48,16 @@ func NewRouter(
 
 	userRouter.HandleFunc("/cart", cartH.ShowCart).Methods("GET")
 	userRouter.HandleFunc("/cart/items", cartH.AddItem).Methods("POST")
+	userRouter.HandleFunc("/cart/items/{part_id}", cartH.RemoveItem).Methods("DELETE")
 	userRouter.HandleFunc("/cart/checkout", cartH.Checkout).Methods("POST")
 
 	userRouter.HandleFunc("/orders", orderH.ListOrders).Methods("GET")
+	userRouter.HandleFunc("/orders/{order_id:[0-9]+}/items", orderH.OrderItems).Methods("GET")
 
-	// ========== STATIC FRONTEND ==========
-	// index.html uses relative links that browsers resolve to /styles.css and /main.js
+	userRouter.HandleFunc("/orders/{id:[0-9]+}/pay", paymentH.CreatePayment).Methods("POST")
+	userRouter.HandleFunc("/orders/{id:[0-9]+}/payment", paymentH.GetLastPayment).Methods("GET")
+	userRouter.HandleFunc("/orders/{id:[0-9]+}/payments", paymentH.ListPaymentsByOrder).Methods("GET")
+
 	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "./internal/delivery/web/index.html")
 	}).Methods("GET")
@@ -72,7 +77,6 @@ func NewRouter(
 	return &Router{mux: r}
 }
 
-// ServeHTTP нужен для совместимости с http.Handler
 func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	r.mux.ServeHTTP(w, req)
 }

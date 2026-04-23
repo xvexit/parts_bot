@@ -1,19 +1,20 @@
 package order
 
 import (
-	"partsBot/internal/domain/shared"
+	money "partsBot/internal/domain/shared"
 	"partsBot/pkg/errors"
 	"strings"
 	"time"
 )
 
 type Order struct {
-	id        int64
-	userID    int64
-	address   string
-	items     []OrderItem
-	status    OrderStatus
-	createdAt time.Time
+	id          int64
+	userID      int64
+	address     string
+	items       []OrderItem
+	total       money.Money
+	status      OrderStatus
+	createdAt   time.Time
 }
 
 type OrderItem struct {
@@ -26,35 +27,41 @@ type OrderItem struct {
 }
 
 func RestoreOrder(
-	id, userID int64,
-	address string,
+	id, userID, total int64,
 	items []OrderItem,
-	status string,
+	status, address string,
 	createdAt time.Time,
 ) *Order {
 	var st OrderStatus
+
 	switch status {
-	case "new":
+	case string(OrderStatusNew):
 		st = OrderStatusNew
-	case "pending":
-		st = OrderStatusPending
-	case "confirmed":
+	case string(OrderStatusPendingPayment):
+		st = OrderStatusPendingPayment
+	case string(OrderStatusPaid):
+		st = OrderStatusPaid
+	case string(OrderStatusConfirmed):
 		st = OrderStatusConfirmed
-	case "shipped":
-		st = OrderStatusShipped
-	case "delivered":
+	case string(OrderStatusDelivered):
 		st = OrderStatusDelivered
-	case "canceled":
+	case string(OrderStatusCanceled):
 		st = OrderStatusCanceled
 	default:
 		st = OrderStatusErr
 	}
 
+	ttl, _ := money.New(total)
+
+	copied := make([]OrderItem, len(items))
+	copy(copied, items)
+
 	return &Order{
-		id: id,
+		id:        id,
 		userID:    userID,
 		address:   address,
-		items:     items,
+		items:     copied,
+		total:     ttl,
 		status:    st,
 		createdAt: createdAt,
 	}
@@ -64,8 +71,8 @@ func NewOrder(
 	userID int64,
 	address string,
 	items []OrderItem,
+	total money.Money,
 ) (*Order, error) {
-
 	if userID <= 0 {
 		return nil, errors.ErrUserId
 	}
@@ -74,7 +81,7 @@ func NewOrder(
 		return nil, errors.ErrOrderEmpty
 	}
 
-	if address == "" {
+	if strings.TrimSpace(address) == "" {
 		return nil, errors.ErrAddressEmpty
 	}
 
@@ -83,9 +90,10 @@ func NewOrder(
 
 	return &Order{
 		userID:    userID,
-		address:   address,
+		address:   strings.TrimSpace(address),
 		items:     copied,
-		status:    OrderStatusNew,
+		total:     total,
+		status:    OrderStatusPendingPayment,
 		createdAt: time.Now(),
 	}, nil
 }
@@ -106,7 +114,6 @@ func NewOrderItem(
 	price money.Money,
 	deliveryDay int,
 ) (*OrderItem, error) {
-
 	if strings.TrimSpace(partID) == "" || len(partID) > 50 {
 		return nil, errors.ErrItemPartID
 	}
@@ -159,6 +166,14 @@ func (o *Order) CreatedAt() time.Time {
 
 func (o *Order) Status() string {
 	return string(o.status)
+}
+
+func (o *Order) StatusValue() OrderStatus {
+	return o.status
+}
+
+func (o *Order) Total() money.Money {
+	return o.total
 }
 
 func (o *OrderItem) PartID() string {

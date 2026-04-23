@@ -2,9 +2,10 @@ package repository
 
 import (
 	"context"
+
 	"partsBot/internal/domain/order"
+	money "partsBot/internal/domain/shared"
 	"partsBot/internal/infrastructure/db"
-	"partsBot/internal/domain/shared"
 )
 
 type PostgresOrderRepo struct {
@@ -17,36 +18,37 @@ func NewPostgresOrderRepo(db *db.DB) *PostgresOrderRepo {
 	}
 }
 
-func (r *PostgresOrderRepo) Create(ctx context.Context, order *order.Order) error {
+func (r *PostgresOrderRepo) Create(ctx context.Context, ord *order.Order) error {
 	exec := r.db.Executor(ctx)
 
 	query := `
-	INSERT INTO orders(user_id, address, status, created_at)
-	VALUES ($1,$2,$3,$4)
+	INSERT INTO orders(user_id, address, status, total, created_at)
+	VALUES ($1,$2,$3,$4,$5)
 	RETURNING id
 	`
+
 	var id int64
 
 	err := exec.QueryRow(
 		ctx,
 		query,
-		order.UserID(),
-		order.Address(),
-		order.Status(),
-		order.CreatedAt(),
+		ord.UserID(),
+		ord.Address(),
+		ord.Status(),
+		ord.Total().Amount(),
+		ord.CreatedAt(),
 	).Scan(&id)
-
 	if err != nil {
 		return err
 	}
 
-	order.SetID(id)
+	ord.SetID(id)
 
-	for _, item := range order.Items() {
+	for _, item := range ord.Items() {
 		_, err := exec.Exec(
 			ctx,
 			`INSERT INTO order_items(order_id, part_id, name, brand, price, quantity, delivery_day)
-			VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+			 VALUES ($1,$2,$3,$4,$5,$6,$7)`,
 			id,
 			item.PartID(),
 			item.Name(),
@@ -55,11 +57,9 @@ func (r *PostgresOrderRepo) Create(ctx context.Context, order *order.Order) erro
 			item.Quantity(),
 			item.DeliveryDay(),
 		)
-
 		if err != nil {
 			return err
 		}
-
 	}
 
 	return nil
@@ -69,23 +69,20 @@ func (r *PostgresOrderRepo) GetByID(ctx context.Context, orderID int64) (*order.
 	exec := r.db.Executor(ctx)
 
 	query := `
-	SELECT id, user_id, address, status, created_at
+	SELECT id, user_id, address, status, total, created_at
 	FROM orders
 	WHERE id=$1
 	`
 
-	dto := OrderDTO{}
+	model := OrderModel{}
 
-	err := exec.QueryRow(
-		ctx,
-		query,
-		orderID,
-	).Scan(
-		&dto.ID,
-		&dto.UserID,
-		&dto.Address,
-		&dto.Status,
-		&dto.CreatedAt,
+	err := exec.QueryRow(ctx, query, orderID).Scan(
+		&model.ID,
+		&model.UserID,
+		&model.Address,
+		&model.Status,
+		&model.Total,
+		&model.CreatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -96,16 +93,15 @@ func (r *PostgresOrderRepo) GetByID(ctx context.Context, orderID int64) (*order.
 		return nil, err
 	}
 
-	order := order.RestoreOrder(
-		dto.ID,
-		dto.UserID,
-		dto.Address,
+	return order.RestoreOrder(
+		model.ID,
+		model.UserID,
+		model.Total,
 		items,
-		dto.Status,
-		dto.CreatedAt,
-	)
-
-	return order, nil
+		model.Status,
+		model.Address,
+		model.CreatedAt,
+	), nil
 }
 
 func (r *PostgresOrderRepo) getItems(ctx context.Context, orderID int64) ([]order.OrderItem, error) {
@@ -114,8 +110,8 @@ func (r *PostgresOrderRepo) getItems(ctx context.Context, orderID int64) ([]orde
 	rows, err := exec.Query(
 		ctx,
 		`SELECT part_id, name, brand, price, quantity, delivery_day
-		FROM order_items
-		WHERE order_id=$1`,
+		 FROM order_items
+		 WHERE order_id=$1`,
 		orderID,
 	)
 	if err != nil {
@@ -123,42 +119,45 @@ func (r *PostgresOrderRepo) getItems(ctx context.Context, orderID int64) ([]orde
 	}
 	defer rows.Close()
 
-	itemSl := []order.OrderItem{}
+	itemSl := make([]order.OrderItem, 0)
 
 	for rows.Next() {
-		dto := OrderItemDTO{}
+		model := OrderItemModel{}
 
 		err := rows.Scan(
-			&dto.PartID,
-			&dto.Name,
-			&dto.Brand,
-			&dto.Price,
-			&dto.Quantity,
-			&dto.DeliveryDay,
+			&model.PartID,
+			&model.Name,
+			&model.Brand,
+			&model.Price,
+			&model.Quantity,
+			&model.DeliveryDay,
 		)
-
 		if err != nil {
 			return nil, err
 		}
 
-		price, err := money.New(dto.Price)
+		price, err := money.New(model.Price)
 		if err != nil {
 			return nil, err
 		}
 
 		item, err := order.NewOrderItem(
-			dto.PartID,
-			dto.Name,
-			dto.Brand,
-			dto.Quantity,
+			model.PartID,
+			model.Name,
+			model.Brand,
+			model.Quantity,
 			price,
-			dto.DeliveryDay,
+			model.DeliveryDay,
 		)
 		if err != nil {
 			return nil, err
 		}
 
 		itemSl = append(itemSl, *item)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 
 	return itemSl, nil
@@ -168,17 +167,13 @@ func (r *PostgresOrderRepo) ListByUserID(ctx context.Context, userID int64) ([]o
 	exec := r.db.Executor(ctx)
 
 	query := `
-	SELECT id, user_id, address, status, created_at
+	SELECT id, user_id, address, total, status, created_at
 	FROM orders
 	WHERE user_id=$1
 	ORDER BY created_at DESC
 	`
 
-	rows, err := exec.Query(
-		ctx,
-		query,
-		userID,
-	)
+	rows, err := exec.Query(ctx, query, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -187,33 +182,40 @@ func (r *PostgresOrderRepo) ListByUserID(ctx context.Context, userID int64) ([]o
 	var orderSl []order.Order
 
 	for rows.Next() {
-		dto := OrderDTO{}
+		model := OrderModel{}
+
 		err := rows.Scan(
-			&dto.ID,
-			&dto.UserID,
-			&dto.Address,
-			&dto.Status,
-			&dto.CreatedAt,
+			&model.ID,
+			&model.UserID,
+			&model.Address,
+			&model.Total,
+			&model.Status,
+			&model.CreatedAt,
 		)
 		if err != nil {
 			return nil, err
 		}
 
-		items, err := r.getItems(ctx, dto.ID)
+		items, err := r.getItems(ctx, model.ID)
 		if err != nil {
 			return nil, err
 		}
 
 		ord := order.RestoreOrder(
-			dto.ID,
-			dto.UserID,
-			dto.Address,
+			model.ID,
+			model.UserID,
+			model.Total,
 			items,
-			dto.Status,
-			dto.CreatedAt,
+			model.Status,
+			model.Address,
+			model.CreatedAt,
 		)
 
 		orderSl = append(orderSl, *ord)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 
 	return orderSl, nil
@@ -224,7 +226,6 @@ func (r *PostgresOrderRepo) UpdateStatus(
 	id int64,
 	status order.OrderStatus,
 ) error {
-
 	exec := r.db.Executor(ctx)
 
 	_, err := exec.Exec(
