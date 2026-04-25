@@ -4,10 +4,11 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/gorilla/mux"
 	orderuc "partsBot/internal/usecase/order"
 	paymentuc "partsBot/internal/usecase/payment"
 	useruc "partsBot/internal/usecase/user"
+
+	"github.com/gorilla/mux"
 )
 
 type OrderHandler struct {
@@ -54,6 +55,12 @@ func (h *OrderHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
 
 		lastPayment, err := h.paymentService.GetLastByOrderID(r.Context(), userID, ord.ID())
 		if err == nil && lastPayment != nil {
+			if lastPayment.Status() == "pending" {
+				if synced, syncErr := h.paymentService.SyncOrderPayment(r.Context(), userID, ord.ID()); syncErr == nil {
+					lastPayment = synced
+				}
+			}
+
 			orderResp.PaymentStatus = lastPayment.Status()
 			orderResp.PaymentURL = lastPayment.PaymentURL()
 		}

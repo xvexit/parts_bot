@@ -2,13 +2,16 @@ package handler
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
-	"github.com/gorilla/mux"
 	paymentuc "partsBot/internal/usecase/payment"
 	useruc "partsBot/internal/usecase/user"
+
+	"github.com/gorilla/mux"
 )
 
 type PaymentHandler struct {
@@ -23,7 +26,6 @@ func NewPaymentHandler(paymentService *paymentuc.Service, userService *useruc.Se
 	}
 }
 
-// CreatePayment — POST /api/user/orders/{id}/pay
 func (h *PaymentHandler) CreatePayment(w http.ResponseWriter, r *http.Request) {
 	userID, err := getUserIDFromRequest(r)
 	if err != nil {
@@ -31,8 +33,7 @@ func (h *PaymentHandler) CreatePayment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	orderIDStr := mux.Vars(r)["id"]
-	orderID, err := strconv.ParseInt(strings.TrimSpace(orderIDStr), 10, 64)
+	orderID, err := strconv.ParseInt(strings.TrimSpace(mux.Vars(r)["id"]), 10, 64)
 	if err != nil || orderID <= 0 {
 		writeError(w, http.StatusBadRequest, "Invalid order id")
 		return
@@ -54,20 +55,9 @@ func (h *PaymentHandler) CreatePayment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusCreated, PaymentResponse{
-		ID:            pay.ID(),
-		OrderID:       pay.OrderID(),
-		Amount:        pay.Amount(),
-		Provider:      pay.Provider(),
-		ProviderTxnID: pay.ProviderTxnID(),
-		PaymentURL:    pay.PaymentURL(),
-		Status:        pay.Status(),
-		CreatedAt:     pay.CreatedAt(),
-		UpdatedAt:     pay.UpdatedAt(),
-	})
+	writeJSON(w, http.StatusCreated, paymentToResponse(pay))
 }
 
-// GetLastPayment — GET /api/user/orders/{id}/payment
 func (h *PaymentHandler) GetLastPayment(w http.ResponseWriter, r *http.Request) {
 	userID, err := getUserIDFromRequest(r)
 	if err != nil {
@@ -75,8 +65,7 @@ func (h *PaymentHandler) GetLastPayment(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	orderIDStr := mux.Vars(r)["id"]
-	orderID, err := strconv.ParseInt(strings.TrimSpace(orderIDStr), 10, 64)
+	orderID, err := strconv.ParseInt(strings.TrimSpace(mux.Vars(r)["id"]), 10, 64)
 	if err != nil || orderID <= 0 {
 		writeError(w, http.StatusBadRequest, "Invalid order id")
 		return
@@ -88,20 +77,9 @@ func (h *PaymentHandler) GetLastPayment(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	writeJSON(w, http.StatusOK, PaymentResponse{
-		ID:            pay.ID(),
-		OrderID:       pay.OrderID(),
-		Amount:        pay.Amount(),
-		Provider:      pay.Provider(),
-		ProviderTxnID: pay.ProviderTxnID(),
-		PaymentURL:    pay.PaymentURL(),
-		Status:        pay.Status(),
-		CreatedAt:     pay.CreatedAt(),
-		UpdatedAt:     pay.UpdatedAt(),
-	})
+	writeJSON(w, http.StatusOK, paymentToResponse(pay))
 }
 
-// ListPaymentsByOrder — GET /api/user/orders/{id}/payments
 func (h *PaymentHandler) ListPaymentsByOrder(w http.ResponseWriter, r *http.Request) {
 	userID, err := getUserIDFromRequest(r)
 	if err != nil {
@@ -109,8 +87,7 @@ func (h *PaymentHandler) ListPaymentsByOrder(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	orderIDStr := mux.Vars(r)["id"]
-	orderID, err := strconv.ParseInt(strings.TrimSpace(orderIDStr), 10, 64)
+	orderID, err := strconv.ParseInt(strings.TrimSpace(mux.Vars(r)["id"]), 10, 64)
 	if err != nil || orderID <= 0 {
 		writeError(w, http.StatusBadRequest, "Invalid order id")
 		return
@@ -123,42 +100,67 @@ func (h *PaymentHandler) ListPaymentsByOrder(w http.ResponseWriter, r *http.Requ
 	}
 
 	resp := make([]PaymentResponse, 0, len(payments))
-	for _, pay := range payments {
-		p := pay
-		resp = append(resp, PaymentResponse{
-			ID:            p.ID(),
-			OrderID:       p.OrderID(),
-			Amount:        p.Amount(),
-			Provider:      p.Provider(),
-			ProviderTxnID: p.ProviderTxnID(),
-			PaymentURL:    p.PaymentURL(),
-			Status:        p.Status(),
-			CreatedAt:     p.CreatedAt(),
-			UpdatedAt:     p.UpdatedAt(),
-		})
+	for i := range payments {
+		resp = append(resp, paymentToResponse(&payments[i]))
 	}
 
 	writeJSON(w, http.StatusOK, resp)
 }
 
-// MockConfirm — POST /api/payments/mock/confirm
-func (h *PaymentHandler) MockConfirm(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		ProviderTxnID string `json:"provider_txn_id"`
-	}
-
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "Invalid JSON")
+// SyncOrderPayment — POST /api/user/orders/{id}/payment/sync
+func (h *PaymentHandler) SyncOrderPayment(w http.ResponseWriter, r *http.Request) {
+	userID, err := getUserIDFromRequest(r)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 
-	pay, err := h.paymentService.MarkSucceededByProviderTxnID(r.Context(), req.ProviderTxnID)
+	orderID, err := strconv.ParseInt(strings.TrimSpace(mux.Vars(r)["id"]), 10, 64)
+	if err != nil || orderID <= 0 {
+		writeError(w, http.StatusBadRequest, "Invalid order id")
+		return
+	}
+
+	pay, err := h.paymentService.SyncOrderPayment(r.Context(), userID, orderID)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	writeJSON(w, http.StatusOK, PaymentResponse{
+	writeJSON(w, http.StatusOK, paymentToResponse(pay))
+}
+
+// YooKassaWebhook — POST /api/payments/yookassa/webhook
+func (h *PaymentHandler) YooKassaWebhook(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "Failed to read body")
+		return
+	}
+	defer r.Body.Close()
+
+	if err := h.paymentService.HandleYooKassaWebhook(r.Context(), body); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{
+		"status": "ok",
+	})
+}
+
+func paymentToResponse(pay interface {
+	ID() int64
+	OrderID() int64
+	Amount() int64
+	Provider() string
+	ProviderTxnID() *string
+	PaymentURL() *string
+	Status() string
+	CreatedAt() time.Time
+	UpdatedAt() time.Time
+}) PaymentResponse {
+	return PaymentResponse{
 		ID:            pay.ID(),
 		OrderID:       pay.OrderID(),
 		Amount:        pay.Amount(),
@@ -168,5 +170,5 @@ func (h *PaymentHandler) MockConfirm(w http.ResponseWriter, r *http.Request) {
 		Status:        pay.Status(),
 		CreatedAt:     pay.CreatedAt(),
 		UpdatedAt:     pay.UpdatedAt(),
-	})
+	}
 }
